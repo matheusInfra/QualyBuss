@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'; // Importação necessár
 
 function App() {
   return (
-    <AuthProvider> 
+    <AuthProvider>
       <AppRoutes />
     </AuthProvider>
   );

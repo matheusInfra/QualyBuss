@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabase'; // Importação do cliente
+import logo from '../../assets/logo.svg';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ const Login = () => {
       // Se o login for bem-sucedido
       console.log("Login realizado com sucesso:", data.user.email);
       navigate('/dashboard');
-      
+
     } catch (error) {
       setErrorMsg('Ocorreu um erro inesperado. Tente novamente mais tarde.');
       console.error('Erro crítico no login:', error);
@@ -56,10 +57,9 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-slate-800">
-            Qualy<span className="text-blue-600">Buss</span>
-          </h1>
-          <p className="text-slate-500 mt-2">Acesse sua conta para gerenciar a frota</p>
+          <img src={logo} alt="Logo da Empresa" className="h-50 w-50 mx-auto mb-4 border-radius-2xl" />
+          
+          <p className="text-slate-500 mt-2">Acesse sua conta para gerenciar em tempo real</p>
         </div>
 
         {/* Exibição de mensagens de erro dinâmicas */}
@@ -72,9 +72,9 @@ const Login = () => {
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-            <input 
+            <input
               name="email"
-              type="email" 
+              type="email"
               required
               value={formData.email}
               onChange={handleChange}
@@ -86,9 +86,9 @@ const Login = () => {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
-            <input 
+            <input
               name="password"
-              type="password" 
+              type="password"
               required
               value={formData.password}
               onChange={handleChange}
@@ -98,12 +98,11 @@ const Login = () => {
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
-            className={`w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 ${
-              loading ? 'opacity-70 cursor-not-allowed' : 'active:scale-[0.98]'
-            }`}
+            className={`w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : 'active:scale-[0.98]'
+              }`}
           >
             {loading ? (
               <>
