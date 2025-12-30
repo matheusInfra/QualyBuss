@@ -1,13 +1,45 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom'; // 1. Adicionar import
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../services/supabase'; // Importamos o cliente que criamos
 
 const Login = () => {
-  const navigate = useNavigate(); // 2. Inicializar o hook
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e) => {
+  // Função para atualizar o estado conforme o usuário digita
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // No futuro, aqui você faria a chamada à API de autenticação
-    navigate('/dashboard'); // 3. Navegar para a rota configurada
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      // Chamada oficial ao Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) throw error;
+
+      // Se deu certo, vai para o dashboard
+      console.log("Login realizado:", data);
+      navigate('/dashboard');
+      
+    } catch (error) {
+      setErrorMsg('Erro ao entrar: Verifique seu e-mail e senha.');
+      console.error(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -20,13 +52,20 @@ const Login = () => {
           <p className="text-slate-500 mt-2">Acesse sua conta para gerenciar a frota</p>
         </div>
 
-        {/* 4. Adicionar o onSubmit no form */}
+        {errorMsg && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center">
+            {errorMsg}
+          </div>
+        )}
+
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
             <input 
+              name="email"
               type="email" 
               required
+              onChange={handleChange}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="exemplo@qualybuss.com"
             />
@@ -35,8 +74,10 @@ const Login = () => {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
             <input 
+              name="password"
               type="password" 
               required
+              onChange={handleChange}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="••••••••"
             />
@@ -44,9 +85,10 @@ const Login = () => {
 
           <button 
             type="submit" 
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg"
+            disabled={loading}
+            className={`w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            Entrar no Sistema
+            {loading ? 'Entrando...' : 'Entrar no Sistema'}
           </button>
         </form>
       </div>
