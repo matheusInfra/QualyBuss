@@ -33,6 +33,12 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
     const fileInputRef = useRef(null);
     const [isLoadingCep, setIsLoadingCep] = useState(false);
 
+    // --- Style Constants (Matching Document Module) ---
+    const LABEL_CLASS = "block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1";
+    const INPUT_CLASS = "w-full px-3 py-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 hover:border-slate-400";
+
+    // --------------------------------------------------
+
     const handleCepBlur = async (e) => {
         const cep = e.target.value?.replace(/\D/g, '');
         if (cep?.length === 8) {
@@ -104,34 +110,34 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
     return (
         <div className="fixed inset-0 z-50 overflow-hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
             <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-                <div className="pointer-events-auto w-screen max-w-2xl transform transition ease-in-out duration-500 sm:duration-700 bg-white shadow-2xl flex flex-col h-full animate-slide-in-right">
+                <div className="pointer-events-auto w-screen max-w-2xl transform transition ease-in-out duration-500 sm:duration-700 bg-slate-50 shadow-2xl flex flex-col h-full animate-slide-in-right">
 
-                    {/* Enterprise Header */}
-                    <div className="px-8 py-6 bg-slate-900 text-white flex items-center justify-between shadow-md z-10">
+                    {/* Header */}
+                    <div className="px-8 py-6 bg-white border-b border-slate-200 flex items-center justify-between z-10">
                         <div>
-                            <h2 className="text-2xl font-semibold tracking-tight">
+                            <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
                                 {collaborator ? 'Editar Colaborador' : 'Novo Colaborador'}
                             </h2>
-                            <p className="text-slate-400 text-sm mt-1 font-light">
+                            <p className="text-slate-500 text-sm mt-1">
                                 {collaborator ? 'Gerencie as informações do perfil selecionado.' : 'Preencha os dados abaixo para cadastrar um novo membro.'}
                             </p>
                         </div>
-                        <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors bg-white/5 p-2 rounded-full hover:bg-white/10">
+                        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-full hover:bg-slate-100">
                             <span className="sr-only">Fechar</span>
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
                     </div>
 
                     {/* Form Container */}
-                    <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+                    <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
 
-                        {/* Modern Tabs */}
-                        <div className="bg-white border-b border-slate-200 px-8 sticky top-0 z-10">
+                        {/* Tabs */}
+                        <div className="bg-white border-b border-slate-200 px-8 sticky top-0 z-10 shadow-sm">
                             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                                 {['pessoal', 'profissional', 'contratual', 'historico'].map((tab) => (
                                     <button
@@ -139,30 +145,30 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                         type="button"
                                         onClick={() => setActiveTab(tab)}
                                         className={`
-                                            whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200
+                                            whitespace-nowrap py-4 px-1 border-b-2 font-bold text-xs uppercase tracking-wider transition-colors
                                             ${activeTab === tab
-                                                ? 'border-indigo-600 text-indigo-600'
+                                                ? 'border-blue-600 text-blue-600'
                                                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
                                         `}
                                     >
-                                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                        {tab}
                                     </button>
                                 ))}
                             </nav>
                         </div>
 
                         {/* Content Area */}
-                        <div className="flex-1 overflow-y-auto p-8">
+                        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-slate-200">
                             <div className="max-w-3xl mx-auto space-y-8">
 
                                 {/* Tab: PESSOAL */}
                                 {activeTab === 'pessoal' && (
-                                    <div className="animate-fade-in space-y-8">
+                                    <div className="animate-fade-in space-y-6">
 
                                         {/* Avatar Card */}
-                                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-6">
+                                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-6">
                                             <div className="relative group cursor-pointer" onClick={handleTriggerFile}>
-                                                <div className="w-24 h-24 rounded-full bg-slate-50 flex items-center justify-center border-2 border-dashed border-slate-300 overflow-hidden hover:border-indigo-400 transition-colors">
+                                                <div className="w-24 h-24 rounded-full bg-slate-50 flex items-center justify-center border-2 border-dashed border-slate-300 overflow-hidden hover:border-blue-500 transition-colors">
                                                     {previewUrl ? (
                                                         <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                                                     ) : (
@@ -176,39 +182,38 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 </div>
                                             </div>
                                             <div>
-                                                <h3 className="text-base font-semibold text-slate-800">Foto de Perfil</h3>
+                                                <h3 className="font-bold text-slate-800">Foto de Perfil</h3>
                                                 <p className="text-sm text-slate-500 mb-3">Recomendado: 400x400px (JPG/PNG)</p>
-                                                <button type="button" onClick={handleTriggerFile} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline">Alterar foto</button>
+                                                <button type="button" onClick={handleTriggerFile} className="text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline">Alterar foto</button>
                                                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                                             </div>
                                         </div>
 
                                         {/* Section: Identificação */}
-                                        <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" /></svg>
+                                        <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                                                 Dados Pessoais
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="md:col-span-2">
-                                                    <label className="label">Nome Completo <span className="text-red-500">*</span></label>
-                                                    <input name="full_name" value={formData.full_name || ''} onChange={handleChange} className="input" placeholder="Ex: Maria da Silva" required />
+                                                    <label className={LABEL_CLASS}>Nome Completo <span className="text-red-500">*</span></label>
+                                                    <input name="full_name" value={formData.full_name || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="Ex: Maria da Silva" required />
                                                 </div>
                                                 <div>
-                                                    <label className="label">CPF</label>
-                                                    <input name="cpf" value={formData.cpf || ''} onChange={handleChange} className="input" placeholder="000.000.000-00" />
+                                                    <label className={LABEL_CLASS}>CPF</label>
+                                                    <input name="cpf" value={formData.cpf || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="000.000.000-00" />
                                                 </div>
                                                 <div>
-                                                    <label className="label">RG</label>
-                                                    <input name="rg" value={formData.rg || ''} onChange={handleChange} className="input" placeholder="00.000.000-0" />
+                                                    <label className={LABEL_CLASS}>RG</label>
+                                                    <input name="rg" value={formData.rg || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="00.000.000-0" />
                                                 </div>
                                                 <div>
-                                                    <label className="label">Data de Nascimento</label>
-                                                    <input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="input" />
+                                                    <label className={LABEL_CLASS}>Data de Nascimento</label>
+                                                    <input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className={INPUT_CLASS} />
                                                 </div>
                                                 <div>
-                                                    <label className="label">Gênero</label>
-                                                    <select name="gender" value={formData.gender || ''} onChange={handleChange} className="input">
+                                                    <label className={LABEL_CLASS}>Gênero</label>
+                                                    <select name="gender" value={formData.gender || ''} onChange={handleChange} className={INPUT_CLASS}>
                                                         <option value="">Selecione...</option>
                                                         <option value="Masculino">Masculino</option>
                                                         <option value="Feminino">Feminino</option>
@@ -219,46 +224,45 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                         </section>
 
                                         {/* Section: Endereço */}
-                                        <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                        <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                                                 Endereço
                                             </h3>
                                             <div className="grid grid-cols-6 gap-6">
                                                 <div className="col-span-6 md:col-span-2 relative">
-                                                    <label className="label">CEP</label>
+                                                    <label className={LABEL_CLASS}>CEP</label>
                                                     <div className="relative">
                                                         <input
                                                             name="address_zip_code"
                                                             value={formData.address_zip_code || ''}
                                                             onChange={handleChange}
                                                             onBlur={handleCepBlur}
-                                                            className="input pr-10"
+                                                            className={`${INPUT_CLASS} pr-10`}
                                                             placeholder="00000-000"
                                                             maxLength={9}
                                                         />
                                                         {isLoadingCep && (
                                                             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
                                                 <div className="col-span-6 md:col-span-4">
-                                                    <label className="label">Rua</label>
-                                                    <input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="input bg-slate-50" readOnly placeholder="Preenchimento automático" />
+                                                    <label className={LABEL_CLASS}>Rua</label>
+                                                    <input name="address_street" value={formData.address_street || ''} onChange={handleChange} className={`${INPUT_CLASS} bg-slate-50 text-slate-500`} readOnly placeholder="Preenchimento automático" />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
-                                                    <label className="label">Número</label>
-                                                    <input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="input" placeholder="123" />
+                                                    <label className={LABEL_CLASS}>Número</label>
+                                                    <input name="address_number" value={formData.address_number || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="123" />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
-                                                    <label className="label">Cidade</label>
-                                                    <input name="address_city" value={formData.address_city || ''} onChange={handleChange} className="input bg-slate-50" readOnly />
+                                                    <label className={LABEL_CLASS}>Cidade</label>
+                                                    <input name="address_city" value={formData.address_city || ''} onChange={handleChange} className={`${INPUT_CLASS} bg-slate-50 text-slate-500`} readOnly />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
-                                                    <label className="label">Estado</label>
-                                                    <input name="address_state" value={formData.address_state || ''} onChange={handleChange} className="input bg-slate-50" readOnly placeholder="UF" maxLength={2} />
+                                                    <label className={LABEL_CLASS}>Estado</label>
+                                                    <input name="address_state" value={formData.address_state || ''} onChange={handleChange} className={`${INPUT_CLASS} bg-slate-50 text-slate-500`} readOnly placeholder="UF" maxLength={2} />
                                                 </div>
                                             </div>
                                         </section>
@@ -267,50 +271,43 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
 
                                 {/* Tab: PROFISSIONAL */}
                                 {activeTab === 'profissional' && (
-                                    <div className="animate-fade-in space-y-8">
-                                        <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                    <div className="animate-fade-in space-y-6">
+                                        <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                                                 Dados Corporativos
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="md:col-span-2">
-                                                    <label className="label">Email Corporativo</label>
-                                                    <div className="relative">
-                                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" /></svg>
-                                                        </div>
-                                                        <input type="email" name="corporate_email" value={formData.corporate_email || ''} onChange={handleChange} className="input pl-10" placeholder="joao@empresa.com" />
-                                                    </div>
+                                                    <label className={LABEL_CLASS}>Email Corporativo</label>
+                                                    <input type="email" name="corporate_email" value={formData.corporate_email || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="joao@empresa.com" />
                                                 </div>
                                                 <div>
-                                                    <label className="label">Departamento</label>
-                                                    <input name="department" value={formData.department || ''} onChange={handleChange} className="input" placeholder="Ex: Engenharia" />
+                                                    <label className={LABEL_CLASS}>Departamento</label>
+                                                    <input name="department" value={formData.department || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="Ex: Engenharia" />
                                                 </div>
                                                 <div>
-                                                    <label className="label">Cargo <span className="text-red-500">*</span></label>
-                                                    <input name="role" value={formData.role || ''} onChange={handleChange} className="input" required placeholder="Ex: Senior Developer" />
+                                                    <label className={LABEL_CLASS}>Cargo <span className="text-red-500">*</span></label>
+                                                    <input name="role" value={formData.role || ''} onChange={handleChange} className={INPUT_CLASS} required placeholder="Ex: Senior Developer" />
                                                 </div>
                                                 <div>
-                                                    <label className="label">Data de Admissão</label>
-                                                    <input type="date" name="admission_date" value={formData.admission_date || ''} onChange={handleChange} className="input" />
+                                                    <label className={LABEL_CLASS}>Data de Admissão</label>
+                                                    <input type="date" name="admission_date" value={formData.admission_date || ''} onChange={handleChange} className={INPUT_CLASS} />
                                                 </div>
                                             </div>
                                         </section>
 
-                                        <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                                                 Registros
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
-                                                    <label className="label">CBO</label>
-                                                    <input name="cbo" value={formData.cbo || ''} onChange={handleChange} className="input" />
+                                                    <label className={LABEL_CLASS}>CBO</label>
+                                                    <input name="cbo" value={formData.cbo || ''} onChange={handleChange} className={INPUT_CLASS} />
                                                 </div>
                                                 <div>
-                                                    <label className="label">PIS/PASEP</label>
-                                                    <input name="pis" value={formData.pis || ''} onChange={handleChange} className="input" />
+                                                    <label className={LABEL_CLASS}>PIS/PASEP</label>
+                                                    <input name="pis" value={formData.pis || ''} onChange={handleChange} className={INPUT_CLASS} />
                                                 </div>
                                             </div>
                                         </section>
@@ -319,42 +316,41 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
 
                                 {/* Tab: CONTRATUAL */}
                                 {activeTab === 'contratual' && (
-                                    <div className="animate-fade-in space-y-8">
-                                        <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <div className="animate-fade-in space-y-6">
+                                        <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                                                 Condições
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
-                                                    <label className="label">Tipo de Contrato</label>
-                                                    <select name="contract_type" value={formData.contract_type || ''} onChange={handleChange} className="input">
+                                                    <label className={LABEL_CLASS}>Tipo de Contrato</label>
+                                                    <select name="contract_type" value={formData.contract_type || ''} onChange={handleChange} className={INPUT_CLASS}>
                                                         <option value="CLT">CLT</option>
                                                         <option value="PJ">PJ</option>
                                                         <option value="Estágio">Estágio</option>
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="label">Regime</label>
-                                                    <select name="work_regime" value={formData.work_regime || ''} onChange={handleChange} className="input">
+                                                    <label className={LABEL_CLASS}>Regime</label>
+                                                    <select name="work_regime" value={formData.work_regime || ''} onChange={handleChange} className={INPUT_CLASS}>
                                                         <option value="Presencial">Presencial</option>
                                                         <option value="Híbrido">Híbrido</option>
                                                         <option value="Remoto">Remoto</option>
                                                     </select>
                                                 </div>
                                                 <div className="md:col-span-2">
-                                                    <label className="label">Salário Base</label>
+                                                    <label className={LABEL_CLASS}>Salário Base</label>
                                                     <div className="relative">
                                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium">R$</div>
-                                                        <input type="number" name="salary" value={formData.salary || ''} onChange={handleChange} className="input pl-10 font-medium" placeholder="0,00" />
+                                                        <input type="number" name="salary" value={formData.salary || ''} onChange={handleChange} className={`${INPUT_CLASS} pl-10 font-medium`} placeholder="0,00" />
                                                     </div>
                                                 </div>
 
                                                 {/* Active Status Card */}
-                                                <div className="md:col-span-2 bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex items-center justify-between">
+                                                <div className="md:col-span-2 bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center justify-between">
                                                     <div>
-                                                        <h4 className="text-indigo-900 font-bold text-sm">Acesso ao Sistema</h4>
-                                                        <p className="text-indigo-700 text-xs mt-1">Habilite ou desabilite o login deste colaborador.</p>
+                                                        <h4 className="text-blue-900 font-bold text-sm">Acesso ao Sistema</h4>
+                                                        <p className="text-blue-700 text-xs mt-1">Habilite ou desabilite o login deste colaborador.</p>
                                                     </div>
                                                     <label className="relative inline-flex items-center cursor-pointer">
                                                         <input type="checkbox" checked={formData.active !== false} onChange={(e) => handleChange({ target: { name: 'active', value: e.target.checked } })} className="sr-only peer" />
@@ -384,13 +380,13 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
 
                         {/* Footer Actions */}
                         <div className="px-8 py-5 bg-white border-t border-slate-200 flex items-center justify-end gap-3 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                            <button type="button" onClick={onClose} className="px-6 py-2.5 text-slate-700 font-medium hover:bg-slate-50 rounded-lg transition-colors border border-slate-300">
+                            <button type="button" onClick={onClose} className="px-6 py-2.5 text-slate-700 font-bold hover:bg-slate-50 rounded-lg transition-colors border border-slate-300 text-sm">
                                 Cancelar
                             </button>
                             <button
                                 type="submit"
                                 disabled={isSaving}
-                                className="px-8 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/30 transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-8 py-2.5 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900 focus:ring-4 focus:ring-slate-500/30 transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
                             >
                                 {isSaving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                                 Salvar Cadastro
@@ -401,18 +397,17 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
             </div>
 
             <style>{`
-                .label { @apply block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1; }
-                .input { @apply w-full px-4 py-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-400 hover:border-slate-400; }
                 @keyframes slide-in-right {
                     from { transform: translateX(100%); opacity: 0; }
                     to { transform: translateX(0); opacity: 1; }
                 }
                 .animate-slide-in-right { animation: slide-in-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+                
+                .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
                 @keyframes fade-in {
                     from { opacity: 0; transform: translateY(10px); }
                     to { opacity: 1; transform: translateY(0); }
                 }
-                .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
             `}</style>
         </div>
     );

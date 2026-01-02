@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import logo from '../../assets/logo.svg';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Sidebar = () => {
+    const { user, signOut } = useAuth();
     const [isOpen, setIsOpen] = useState(true);
 
     const toggleSidebar = () => setIsOpen(!isOpen);
@@ -92,9 +94,25 @@ const Sidebar = () => {
                 ))}
             </nav>
 
-            {/* Footer Info */}
-            <div className={`p-4 border-t border-slate-700 text-slate-500 text-xs text-center overflow-hidden whitespace-nowrap ${!isOpen && 'hidden'}`}>
-                &copy; 2024 QualyBuss
+            {/* Footer User Info */}
+            <div className={`p-4 border-t border-slate-700 bg-slate-800/50`}>
+                <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${!isOpen ? 'justify-center' : ''}`}>
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                        {user?.email?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+
+                    <div className={`flex flex-col overflow-hidden transition-all duration-300 ${!isOpen ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+                        <span className="text-white text-sm font-medium truncate" title={user?.email}>
+                            {user?.email?.split('@')[0]}
+                        </span>
+                        <button
+                            onClick={signOut}
+                            className="text-xs text-slate-400 hover:text-red-400 text-left transition-colors flex items-center gap-1"
+                        >
+                            Sair do Sistema
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
