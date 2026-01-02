@@ -1,12 +1,14 @@
-// src/App.jsx
 import { AppRoutes } from './routes';
-import { AuthProvider } from './contexts/AuthContext'; // Importação necessária
+import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <NotificationProvider>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </NotificationProvider>
   );
 }
 

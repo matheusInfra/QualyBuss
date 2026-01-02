@@ -11,11 +11,10 @@ export const collaboratorService = {
 
         if (error) {
             console.error('Erro ao buscar colaboradores:', error);
-            // Fallback para dados locais se a tabela não existir ainda (para teste de UI)
-            return getMockData();
+            return [];
         }
 
-        return data && data.length > 0 ? data : getMockData();
+        return data || [];
     },
 
     // Buscar por ID
@@ -66,6 +65,23 @@ export const collaboratorService = {
 
         if (error) throw error;
         return data;
+    },
+
+    // Upload de Avatar
+    async uploadAvatar(file, fileName) {
+        const filePath = `${fileName}`;
+
+        const { data, error } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, file, { upsert: true });
+
+        if (error) throw error;
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+
+        return publicUrl;
     }
 };
 
@@ -80,43 +96,3 @@ const formatPayload = (data) => {
         birth_date: data.birth_date || null
     };
 };
-
-// Mock Data para desenvolvimento da UI antes do SQL rodar
-const getMockData = () => [
-    {
-        id: '1',
-        full_name: 'Ana Silva',
-        role: 'Gerente de RH',
-        department: 'Recursos Humanos',
-        active: true,
-        avatar_url: 'https://ui-avatars.com/api/?name=Ana+Silva&background=0D8ABC&color=fff',
-        personal_email: 'ana.silva@email.com',
-        phone: '(11) 99999-9999',
-        contract_type: 'CLT',
-        admission_date: '2023-01-15'
-    },
-    {
-        id: '2',
-        full_name: 'Carlos Souza',
-        role: 'Desenvolvedor Senior',
-        department: 'TI',
-        active: true,
-        avatar_url: 'https://ui-avatars.com/api/?name=Carlos+Souza&background=10B981&color=fff',
-        personal_email: 'carlos.souza@email.com',
-        phone: '(11) 98888-8888',
-        contract_type: 'PJ',
-        admission_date: '2023-03-10'
-    },
-    {
-        id: '3',
-        full_name: 'Mariana Costa',
-        role: 'Analista Financeiro',
-        department: 'Financeiro',
-        active: false,
-        avatar_url: 'https://ui-avatars.com/api/?name=Mariana+Costa&background=6366f1&color=fff',
-        personal_email: 'mariana.costa@email.com',
-        phone: '(11) 97777-7777',
-        contract_type: 'CLT',
-        admission_date: '2022-11-05'
-    }
-];

@@ -2,58 +2,70 @@ import React, { useState, useEffect } from 'react';
 import CollaboratorCard from '../../components/CollaboratorCard';
 import CollaboratorDrawer from '../../components/CollaboratorDrawer';
 import { collaboratorService } from '../../services/collaboratorService';
+import { useNotification } from '../../context/NotificationContext';
 
 const Colaboradores = () => {
+    const { notify } = useNotification();
     const [collaborators, setCollaborators] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedCollab, setSelectedCollab] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-
-    // Carregar dados
-    useEffect(() => {
-        fetchData();
-    }, []);
 
     const fetchData = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
             const data = await collaboratorService.getAll();
-            setCollaborators(data);
+            setCollaborators(data || []);
         } catch (error) {
-            console.error("Failed to fetch collaborators", error);
+            console.error("Error fetching collaborators", error);
+            notify.error("Erro ao carregar", "Não foi possível carregar a lista de colaboradores.");
         } finally {
             setLoading(false);
         }
     };
 
-    // Handlers
+    useEffect(() => {
+        fetchData();
+    }, []);
+
     const handleCreateNew = () => {
-        setSelectedCollab(null); // Modo Criação
+        setSelectedCollab(null);
         setIsDrawerOpen(true);
     };
 
     const handleEdit = (collab) => {
-        setSelectedCollab(collab); // Modo Edição
+        setSelectedCollab(collab);
         setIsDrawerOpen(true);
     };
 
-    const handleSave = async (formData) => {
+    const handleSave = async (formData, avatarFile) => {
         setIsSaving(true);
         try {
+            let dataToSave = { ...formData };
+
+            // Se houver nova foto, faz upload primeiro
+            if (avatarFile) {
+                const fileName = `avatar_${Date.now()}_${avatarFile.name.replace(/\s+/g, '-')}`;
+                const publicUrl = await collaboratorService.uploadAvatar(avatarFile, fileName);
+                dataToSave.avatar_url = publicUrl;
+            }
+
             if (selectedCollab) {
                 // Update
-                await collaboratorService.update(selectedCollab.id, formData);
+                await collaboratorService.update(selectedCollab.id, dataToSave);
+                notify.success("Atualizado", "Dados do colaborador atualizados com sucesso!");
             } else {
                 // Create
-                await collaboratorService.create(formData);
+                await collaboratorService.create(dataToSave);
+                notify.success("Cadastrado", "Novo colaborador registrado com sucesso!");
             }
             setIsDrawerOpen(false);
             fetchData(); // Recarrega a lista
         } catch (error) {
             console.error("Error saving collaborator", error);
-            alert("Erro ao salvar. Verifique o console.");
+            notify.error("Erro ao Salvar", "Ocorreu um problema ao salvar os dados. Tente novamente.");
         } finally {
             setIsSaving(false);
         }
