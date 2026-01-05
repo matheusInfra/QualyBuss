@@ -1,42 +1,23 @@
 import { supabase } from './supabase';
 
-/**
- * Envia uma mensagem para o assistente de IA via Supabase Edge Function.
- * @param {string} message - A mensagem do usuário.
- * @returns {Promise<string>} - A resposta da IA.
- */
-export const sendMessageToAI = async (message) => {
+export const sendMessageToAI = async (message, previousMessages = []) => {
     try {
-        // Redireciona para o nosso servidor Node.js Self-Hosted (server-chat.js)
-        // Em produção, substitua 'http://localhost:3001' pelo IP do seu servidor
-        const response = await fetch('http://localhost:3001/api/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ message })
+        // Formata histórico se necessário para o Gemini (User/Model roles)
+        // Isso melhora a "memória" que discutimos antes
+        
+        const { data, error } = await supabase.functions.invoke('gemini-chat', {
+            body: { 
+                message,
+                // Opcional: passar histórico simplificado se quiser memória
+                // history: previousMessages 
+            }
         });
 
-        if (!response.ok) {
-            throw new Error(`Erro no servidor: ${response.statusText}`);
-        }
-
-        const data = await response.json();
+        if (error) throw error;
         return data.text;
 
     } catch (error) {
         console.error('Erro ao comunicar com IA:', error);
-        return "Desculpe, não consegui conectar ao servidor de IA (Self-Hosted). Verifique se o 'server-chat.js' está rodando.";
+        return "Erro ao conectar com o assistente.";
     }
-};
-
-/**
- * Analisa uma imagem para extração de dados (OCR).
- * @param {File|Blob} imageFile - O arquivo de imagem.
- * @returns {Promise<Object>} - Dados extraídos (JSON).
- */
-export const analyzeDocumentImage = async (imageFile) => {
-    // TODO: Converter imagem para Base64 para envio
-    // Por enquanto, apenas placeholder para a estrutura
-    return { error: "Função de envio de imagem ainda em desenvolvimento." };
 };
