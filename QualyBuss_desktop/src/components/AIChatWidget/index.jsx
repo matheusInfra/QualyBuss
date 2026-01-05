@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { sendMessageToAI } from '../../services/aiService';
 
 const AIChatWidget = () => {
     const { user } = useAuth();
@@ -28,18 +29,26 @@ const AIChatWidget = () => {
         setInput('');
         setIsTyping(true);
 
-        // Placeholder for Edge Function call
-        // In the future, this will call: supabase.functions.invoke('gemini-chat', { body: { message: input } })
+        // Call AI Service
+        try {
+            const responseText = await sendMessageToAI(input);
 
-        setTimeout(() => {
             const botMsg = {
                 id: Date.now() + 1,
                 type: 'bot',
-                text: 'Ainda estou em fase de testes! Em breve estarei conectado ao Gemini AI para responder suas dúvidas.'
+                text: responseText
             };
             setMessages(prev => [...prev, botMsg]);
+        } catch (error) {
+            const errorMsg = {
+                id: Date.now() + 1,
+                type: 'bot',
+                text: 'Erro ao conectar. Tente novamente mais tarde.'
+            };
+            setMessages(prev => [...prev, errorMsg]);
+        } finally {
             setIsTyping(false);
-        }, 1500);
+        }
     };
 
     return (
