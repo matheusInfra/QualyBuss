@@ -501,4 +501,57 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
     );
 };
 
+// --- Subcomponents ---
+
+const HistoryTab = ({ collaboratorId }) => {
+    const [history, setHistory] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        if (!collaboratorId) return;
+        const fetchHistory = async () => {
+            try {
+                // Determine if we need to dynamically import service to avoid circular dependency
+                const { occurrenceService } = await import('../../services/occurrenceService');
+                const data = await occurrenceService.getAll({ collaboratorId });
+                setHistory(data || []);
+            } catch (err) {
+                console.error("Failed to load history", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchHistory();
+    }, [collaboratorId]);
+
+    if (loading) return <div className="text-center py-8 text-slate-400">Carregando histórico...</div>;
+    if (history.length === 0) return <div className="text-center py-8 text-slate-400 border border-dashed rounded-xl">Nenhum registro encontrado.</div>;
+
+    return (
+        <div className="space-y-4 animate-fade-in">
+            {history.map(item => (
+                <div key={item.id} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex gap-4">
+                    <div className={`w-1 rounded-full ${item.type === 'SUSPENSAO' ? 'bg-red-500' :
+                            item.type === 'MERITO' ? 'bg-green-500' :
+                                item.type === 'ADVERTENCIA_ESCRITA' ? 'bg-orange-500' :
+                                    'bg-blue-400'
+                        }`} />
+                    <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                            <h4 className="font-bold text-slate-700 text-sm">{item.title}</h4>
+                            <span className="text-[10px] text-slate-400">{new Date(item.date_event).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{item.description}</p>
+                        <div className="mt-2 flex gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 uppercase">
+                                {item.type.replace('_', ' ')}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 export default CollaboratorDrawer;

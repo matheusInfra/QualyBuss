@@ -28,6 +28,18 @@ const Ferias = () => {
         reason: ''
     });
     const [validationError, setValidationError] = useState(null);
+    const [pendingActionId, setPendingActionId] = useState(null); // New Quick Action Modal State
+    // Ghost State: Recently cancelled items stay visible for 10 minutes
+    const [transientCancelledIds, setTransientCancelledIds] = useState([]);
+
+    // Cleanup Ghost items periodically
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+            setTransientCancelledIds(prev => prev.filter(item => item.timestamp > tenMinutesAgo));
+        }, 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     const [activeTab, setActiveTab] = useState('CALENDAR');
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -93,8 +105,13 @@ const Ferias = () => {
             const isToday = new Date().toDateString() === currentDayDate.toDateString();
             const holiday = holidays.find(h => h.date === dateStr);
             const dayLeaves = leaves.filter(l => {
-                // Check intersection
-                return dateStr >= l.start_date && dateStr <= l.end_date;
+                // Check intersection and exclude non-active statuses for Calendar
+                // UNLESS it is in the Ghost List (Transient Cancelled)
+                const isGhost = transientCancelledIds.some(t => t.id === l.id);
+                const isActive = (l.status === 'APPROVED' || l.status === 'PENDING');
+
+                return (isActive || isGhost) &&
+                    dateStr >= l.start_date && dateStr <= l.end_date;
             });
 
             daysArray.push({
@@ -219,7 +236,14 @@ const Ferias = () => {
         try {
             await leaveService.updateStatus(id, newStatus);
             notify.success('Sucesso', `Status atualizado para ${newStatus}`);
+
+            // Add to Ghost State if Cancelled/Rejected
+            if (newStatus === 'CANCELLED' || newStatus === 'REJECTED') {
+                setTransientCancelledIds(prev => [...prev, { id, timestamp: Date.now() }]);
+            }
+
             loadLeaves();
+            setPendingActionId(null); // Close quick modal
         } catch (err) {
             console.error(err);
             // Extract error message from Supabase/Postgres response if available
@@ -298,69 +322,94 @@ const Ferias = () => {
                         </div>
                     </div>
 
-                    {/* Weekdays Header */}
-                    <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50">
-                        {WEEKDAYS.map(day => (
-                            <div key={day} className="py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">
-                                {day}
-                            </div>
-                        ))}
-                    </div>
-
                     {/* Days Grid */}
-                    <div className="flex-1 grid grid-cols-7 auto-rows-fr">
-                        {days.map((day, idx) => {
-                            if (day.type === 'padding') return <div key={idx} className="bg-slate-50/30 border-b border-r border-slate-100" />;
-
-                            return (
-                                <div
-                                    key={day.dateStr}
-                                    onClick={() => openModal(day.dateStr)}
-                                    className={`
-                                        relative border-b border-r border-slate-100 p-2 group transition-all min-h-[100px] cursor-pointer
-                                        ${day.isToday ? 'bg-blue-50/50' : 'hover:bg-slate-50'}
-                                        ${day.isWeekend ? 'bg-slate-50/50' : ''}
-                                    `}
-                                >
-                                    <div className={`
-                                        w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold mb-2 transition-colors
-                                        ${day.isToday ? 'bg-blue-600 text-white shadow-md' : day.holiday ? 'text-red-500' : 'text-slate-700 group-hover:bg-slate-200'}
-                                    `}>
-                                        {day.value}
-                                    </div>
-                                    {day.holiday && (
-                                        <div className="mb-1">
-                                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 truncate max-w-full" title={day.holiday.name}>
-                                                {day.holiday.name}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <div className="space-y-1 overflow-y-auto max-h-[80px] scrollbar-hide">
-                                        {day.dayLeaves.filter(l => l.status === 'APPROVED').map(leave => {
-                                            const isStart = leave.start_date === day.dateStr;
-                                            const isEnd = leave.end_date === day.dateStr;
-                                            const colorClass = leave.type === 'FERIAS' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200';
-                                            const showTitle = isStart || day.date.getDay() === 0;
-
-                                            return (
-                                                <div
-                                                    key={leave.id}
-                                                    className={`
-                                                        text-[10px] font-medium px-2 py-1 rounded border shadow-sm truncate transition-all hover:scale-105 active:scale-95
-                                                        ${colorClass}
-                                                        ${isStart ? 'rounded-l-md ml-0' : '-ml-3 rounded-l-none border-l-0 opacity-80'} 
-                                                        ${isEnd ? 'rounded-r-md mr-0' : '-mr-3 rounded-r-none border-r-0'}
-                                                    `}
-                                                    title={`${leave.collaborators?.full_name} - ${leave.type}`}
-                                                >
-                                                    {showTitle && leave.collaborators?.full_name.split(' ')[0]}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                    <div className="flex-1 p-4">
+                        <div className="grid grid-cols-7 mb-2">
+                            {WEEKDAYS.map(day => (
+                                <div key={day} className="text-center text-xs font-bold text-slate-400 uppercase tracking-wider py-2">
+                                    {day}
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7 grid-rows-6 gap-2 h-full">
+                            {days.map((day, i) => {
+                                if (day.type === 'padding') return <div key={i} className="" />;
+
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={() => openModal(day.dateStr)}
+                                        className={`
+                                            relative p-2 rounded-xl border transition-all cursor-pointer group min-h-[80px] flex flex-col
+                                            ${day.isToday ? 'bg-blue-50/50 border-blue-200 shadow-inner' : 'bg-white border-slate-100 hover:border-blue-300 hover:shadow-md'}
+                                            ${day.isWeekend ? 'bg-slate-50/50' : ''}
+                                        `}
+                                    >
+                                        <span className={`text-sm font-bold ${day.isToday ? 'text-blue-600' : 'text-slate-700'}`}>{day.value}</span>
+
+                                        {/* Holiday Badge */}
+                                        {day.holiday && (
+                                            <div className="mt-1 text-[10px] leading-tight text-red-500 font-bold bg-red-50 p-1 rounded border border-red-100 truncate" title={day.holiday.name}>
+                                                {day.holiday.name}
+                                            </div>
+                                        )}
+
+                                        {/* Leaves Indicators */}
+                                        <div className="mt-1 flex flex-col gap-0.5 overflow-hidden">
+                                            {day.dayLeaves.map(leave => {
+                                                const isGhost = transientCancelledIds.some(t => t.id === leave.id);
+                                                let bgColor = 'bg-slate-200';
+
+                                                if (leave.status === 'PENDING') bgColor = 'bg-amber-400 border-amber-500 animate-pulse';
+                                                else if (leave.status === 'APPROVED') bgColor = 'bg-emerald-500 border-emerald-600';
+                                                else if (isGhost) bgColor = 'bg-red-300 opacity-60 border-red-400';
+
+                                                return (
+                                                    <div
+                                                        key={leave.id}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // Prevent opening "New Request" modal
+                                                            if (leave.status === 'PENDING') {
+                                                                setPendingActionId(leave.id); // Open Quick Action
+                                                            } else if (leave.status === 'APPROVED') {
+                                                                // Open Edit Mode (Standard)
+                                                                setEditingId(leave.id);
+                                                                setFormData({
+                                                                    collaboratorId: leave.collaborator_id,
+                                                                    startDate: leave.start_date,
+                                                                    endDate: leave.end_date,
+                                                                    type: leave.type,
+                                                                    reason: leave.reason || ''
+                                                                });
+                                                                setIsModalOpen(true);
+                                                            }
+                                                        }}
+                                                        className={`h-2 rounded w-full border border-opacity-20 cursor-pointer hover:brightness-110 transition-all ${bgColor}`}
+                                                        title={`${leave.collaborators?.full_name} - ${leave.status}`}
+                                                    />
+                                                );
+                                            })}
+                                            {day.dayLeaves.length > 0 && day.dayLeaves.length <= 3 && (
+                                                <div className="flex -space-x-1 mt-1">
+                                                    {day.dayLeaves.map(l => (
+                                                        <div key={l.id} className="w-4 h-4 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[8px] font-bold text-slate-600 first-letter:uppercase" title={l.collaborators?.full_name}>
+                                                            {l.collaborators?.full_name?.charAt(0)}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Add Button (Hover) */}
+                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="bg-blue-600 text-white rounded-full p-1 shadow-sm">
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}
@@ -368,15 +417,15 @@ const Ferias = () => {
             {/* TAB CONTENT: REQUESTS LIST */}
             {activeTab === 'REQUESTS' && (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up">
-                    <div className="p-0 overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
                                     <th className="p-4">Colaborador</th>
                                     <th className="p-4">Tipo</th>
                                     <th className="p-4">Período</th>
-                                    <th className="p-4">Qtd. Dias</th>
-                                    <th className="p-4">Justificativa Original</th>
+                                    <th className="p-4">Duração</th>
+                                    <th className="p-4">Motivo Original</th>
                                     <th className="p-4">Status</th>
                                     <th className="p-4 text-right">Ações</th>
                                 </tr>
@@ -444,7 +493,7 @@ const Ferias = () => {
                                                                     type: req.type,
                                                                     reason: req.reason || ''
                                                                 });
-                                                                setIsModalOpen(true);
+                                                                setIsModalOpen(true); // Re-opens Modal for Editing
                                                             }}
                                                             className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                                                             title="Alterar (Reverte para Pendente)"
@@ -470,109 +519,232 @@ const Ferias = () => {
                 </div>
             )}
 
-            {/* Application Modal */}
+            {/* NEW & IMPROVED MODAL */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
+                        {/* Modal Header */}
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 className="text-xl font-bold text-slate-800">Registrar Ausência</h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800">
+                                    {editingId ? 'Editar Solicitação' : 'Nova Ausência'}
+                                </h3>
+                                <p className="text-sm text-slate-500">Preencha os dados da solicitação abaixo.</p>
+                            </div>
+                            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm hover:shadow transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                            {/* Validation Errors */}
-                            {validationError && validationError.length > 0 && (
-                                <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-start gap-3">
-                                    <svg className="w-5 h-5 text-red-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                    <div>
-                                        <h4 className="text-sm font-bold text-red-800">Data de Início Inválida (CLT)</h4>
-                                        <ul className="text-xs text-red-600 mt-1 list-disc list-inside">
-                                            {validationError.map((err, i) => <li key={i}>{err}</li>)}
-                                        </ul>
+                        {/* Modal Body */}
+                        <div className="p-8 overflow-y-auto">
+                            <form onSubmit={handleSubmit} className="space-y-8">
+
+                                {/* 1. Type Selection (Cards) */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Tipo de Ausência</label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        {[
+                                            { id: 'FERIAS', label: 'Férias', desc: 'Regras da CLT aplicáveis', color: 'emerald' },
+                                            { id: 'FOLGA', label: 'Folga / Abono', desc: 'Flexibilidade de datas', color: 'blue' },
+                                            { id: 'LICENCA', label: 'Licença Médica', desc: 'Requer atestado', color: 'purple' }
+                                        ].map(opt => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData(prev => ({ ...prev, type: opt.id }));
+                                                    // Trigger validation update immediately
+                                                    validateDate(formData.startDate, opt.id);
+                                                }}
+                                                className={`
+                                                    relative p-4 rounded-xl border-2 text-left transition-all group
+                                                    ${formData.type === opt.id
+                                                        ? `border-${opt.color}-500 bg-${opt.color}-50/50 ring-1 ring-${opt.color}-500`
+                                                        : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                                                    }
+                                                `}
+                                            >
+                                                <div className={`font-bold ${formData.type === opt.id ? `text-${opt.color}-700` : 'text-slate-700'}`}>
+                                                    {opt.label}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 mt-1 font-medium">{opt.desc}</div>
+
+                                                {formData.type === opt.id && (
+                                                    <div className={`absolute top-3 right-3 w-4 h-4 bg-${opt.color}-500 rounded-full flex items-center justify-center`}>
+                                                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                            )}
 
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Colaborador</label>
-                                <select
-                                    name="collaboratorId"
-                                    value={formData.collaboratorId}
-                                    onChange={handleFormChange}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                                    required
-                                >
-                                    <option value="">Selecione o colaborador...</option>
-                                    {collaborators.map(c => (
-                                        <option key={c.id} value={c.id}>{c.full_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                                {/* 2. Collaborator */}
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Início</label>
-                                    <input
-                                        type="date"
-                                        name="startDate"
-                                        value={formData.startDate}
+                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Colaborador</label>
+                                    <select
+                                        name="collaboratorId"
+                                        value={formData.collaboratorId}
                                         onChange={handleFormChange}
-                                        className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 ${validationError ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-blue-500'}`}
+                                        className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-blue-500 focus:bg-white transition-colors text-slate-700 font-medium"
                                         required
-                                    />
+                                    >
+                                        <option value="">Selecione o colaborador...</option>
+                                        {collaborators.map(c => (
+                                            <option key={c.id} value={c.id}>{c.full_name}</option>
+                                        ))}
+                                    </select>
                                 </div>
+
+                                {/* 3. Dates & Validation Info */}
+                                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Data de Início</label>
+                                            <input
+                                                type="date"
+                                                name="startDate"
+                                                value={formData.startDate}
+                                                onChange={handleFormChange}
+                                                className={`w-full px-4 py-3 border-2 rounded-xl outline-none transition-colors font-medium
+                                                    ${validationError
+                                                        ? 'border-red-300 bg-red-50 text-red-700 focus:border-red-500'
+                                                        : 'border-slate-200 focus:border-blue-500'}`}
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Data de Fim</label>
+                                            <input
+                                                type="date"
+                                                name="endDate"
+                                                value={formData.endDate}
+                                                onChange={handleFormChange}
+                                                min={formData.startDate}
+                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500 font-medium"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Verification Feedback */}
+                                    {validationError && (
+                                        <div className="flex items-start gap-3 p-3 bg-red-100/50 rounded-lg border border-red-100">
+                                            <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                            <div>
+                                                <p className="text-xs font-bold text-red-700 uppercase">Bloqueio CLT Detectado</p>
+                                                <p className="text-xs text-red-600 mt-0.5">
+                                                    Para férias, o início não pode ser em sextas, sábados ou vésperas de feriado.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {!validationError && formData.startDate && formData.type === 'FERIAS' && (
+                                        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                                            <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                            <span className="text-xs font-bold text-emerald-700">Data válida para início de Férias.</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 4. Reason */}
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Fim</label>
-                                    <input
-                                        type="date"
-                                        name="endDate"
-                                        value={formData.endDate}
+                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Motivo / Observação</label>
+                                    <textarea
+                                        name="reason"
+                                        value={formData.reason}
                                         onChange={handleFormChange}
-                                        min={formData.startDate}
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
+                                        rows="2"
+                                        className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none"
+                                        placeholder="Opcional: Descreva o motivo..."
+                                    ></textarea>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tipo</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {['FERIAS', 'FOLGA', 'LICENCA'].map(type => (
-                                        <button
-                                            key={type}
-                                            type="button"
-                                            onClick={() => setFormData(prev => ({ ...prev, type }))}
-                                            className={`py-2 rounded-lg text-xs font-bold border transition-all ${formData.type === type ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                                        >
-                                            {type}
-                                        </button>
-                                    ))}
+                                {/* Footer Actions */}
+                                <div className="pt-6 border-t border-slate-100 flex gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsModalOpen(false)}
+                                        className="flex-1 py-4 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={!!validationError}
+                                        className="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95"
+                                    >
+                                        {editingId ? 'Salvar Alterações' : 'Confirmar Solicitação'}
+                                    </button>
                                 </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-slate-100 flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 py-3 text-slate-600 font-bold hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={!!validationError}
-                                    className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Confirmar
-                                </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}
+            {/* PENDING ACTION MODAL (Quick View) */}
+            {pendingActionId && (() => {
+                const req = leaves.find(l => l.id === pendingActionId);
+                if (!req) return null;
+
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in">
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-zoom-in relative">
+                            <button onClick={() => setPendingActionId(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+
+                            <div className="p-6 text-center">
+                                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-slow">
+                                    <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800">Aprovação Pendente</h3>
+                                <p className="text-sm text-slate-500 mt-1">O colaborador solicitou {req.type.toLowerCase()}.</p>
+
+                                <div className="bg-slate-50 rounded-xl p-4 my-6 text-left border border-slate-100">
+                                    <div className="mb-2">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Colaborador</p>
+                                        <p className="font-bold text-slate-700">{req.collaborators?.full_name}</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Início</p>
+                                            <p className="text-sm font-medium text-slate-600">{new Date(req.start_date).toLocaleDateString()}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Fim</p>
+                                            <p className="text-sm font-medium text-slate-600">{new Date(req.end_date).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                    {req.reason && (
+                                        <div className="mt-2 pt-2 border-t border-slate-200">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Motivo</p>
+                                            <p className="text-xs text-slate-500 italic">"{req.reason}"</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => handleStatusChange(req.id, 'REJECTED')}
+                                        className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors"
+                                    >
+                                        Reprovar
+                                    </button>
+                                    <button
+                                        onClick={() => handleStatusChange(req.id, 'APPROVED')}
+                                        className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-600 transition-transform active:scale-95"
+                                    >
+                                        Aprovar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };

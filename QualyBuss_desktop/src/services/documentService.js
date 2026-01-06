@@ -3,7 +3,7 @@ import { cache } from '../utils/cacheManager';
 
 export const documentService = {
     // Upload file and create record
-    async uploadDocument(file, collaboratorId, category = 'Outros') {
+    async uploadDocument(file, collaboratorId, category = 'Outros', occurrenceId = null) {
         try {
             // 1. Upload to Storage
             const fileExt = file.name.split('.').pop();
@@ -31,7 +31,8 @@ export const documentService = {
                         url: publicUrl,
                         category: category,
                         size_bytes: file.size,
-                        type: file.type
+                        type: file.type,
+                        occurrence_id: occurrenceId // Link to occurrence if provided
                     }
                 ])
                 .select()

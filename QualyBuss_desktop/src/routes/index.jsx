@@ -9,6 +9,9 @@ import Importacao from '../pages/importacao';
 import Ferias from '../pages/ferias';
 import Movimentacoes from '../pages/movimentacoes';
 import Ausencias from '../pages/ausencias';
+import Configuracoes from '../pages/configuracoes';
+import Auditoria from '../pages/auditoria';
+import Ocorrencias from '../pages/ocorrencias';
 
 const PrivateRoute = ({ children }) => {
   const { user } = useAuth();
@@ -28,6 +31,9 @@ export function AppRoutes() {
           <Route path="/ferias" element={<Ferias />} />
           <Route path="/movimentacoes" element={<Movimentacoes />} />
           <Route path="/ausencias" element={<Ausencias />} />
+          <Route path="/auditoria" element={<Auditoria />} />
+          <Route path="/ocorrencias" element={<Ocorrencias />} />
+          <Route path="/configuracoes" element={<Configuracoes />} />
           <Route path="/documentacao" element={<Documentacao />} />
           <Route path="/importacao" element={<Importacao />} />
         </Route>
