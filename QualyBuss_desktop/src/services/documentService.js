@@ -1,11 +1,11 @@
 import { supabase } from './supabase';
+import { cache } from '../utils/cacheManager';
 
 export const documentService = {
     // Upload file and create record
     async uploadDocument(file, collaboratorId, category = 'Outros') {
         try {
             // 1. Upload to Storage
-            // Create a unique file path: collaborator_id/timestamp_filename
             const fileExt = file.name.split('.').pop();
             const cleanFileName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
             const filePath = `${collaboratorId}/${Date.now()}_${cleanFileName}.${fileExt}`;
@@ -39,6 +39,9 @@ export const documentService = {
 
             if (dbError) throw dbError;
 
+            // Invalidate cache for this user's documents
+            cache.del(`docs_${collaboratorId}`);
+
             return recordData;
 
         } catch (error) {
@@ -50,6 +53,10 @@ export const documentService = {
     // List documents for a collaborator
     async getByCollaboratorId(collaboratorId) {
         try {
+            const cacheKey = `docs_${collaboratorId}`;
+            const cached = cache.get(cacheKey);
+            if (cached) return cached;
+
             const { data, error } = await supabase
                 .from('collaborator_documents')
                 .select('*')
@@ -57,6 +64,8 @@ export const documentService = {
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
+
+            cache.set(cacheKey, data, 300); // 5 min cache
             return data;
         } catch (error) {
             console.error('Error getting documents:', error);
@@ -67,13 +76,7 @@ export const documentService = {
     // Delete document
     async deleteDocument(id, url) {
         try {
-            // 1. Delete from Storage
-            // Extract path from URL. Assuming URL structure allows this. 
-            // If publicUrl is "https://.../storage/v1/object/public/bucket/path/to/file"
-            // We need "path/to/file".
-
-            const projectUrl = supabase.storageUrl || ''; // fallback if needed, but easier to parse url
-            // Simple parse: retrieve everything after 'documentos_pessoais/'
+            // 1. Delete from Storage (Logic preserved)
             const urlObj = new URL(url);
             const pathParts = urlObj.pathname.split('/documentos_pessoais/');
 
@@ -85,17 +88,27 @@ export const documentService = {
 
                 if (storageError) {
                     console.warn("Storage delete warning:", storageError);
-                    // We continue to delete the DB record even if storage fails/file not found
                 }
             }
 
             // 2. Delete from Database
+            // Get collaborator_id before deleting to invalidate cache correctly (Optional, or just invalidate all docs if needed, but since we pass ID usually we might need to fetch it first if we want strict cache clearing or pass collabID as arg. For simplicity, we might assume the caller re-fetches or we need to invalidate broadly if we don't have collabId. 
+            // Better approach: return true, and let UI refetch. But here we want to clear cache.
+            // Check if we can get collabID from row?
+
+            // Fetch first to get collab_id for cache clearing
+            const { data: doc } = await supabase.from('collaborator_documents').select('collaborator_id').eq('id', id).single();
+
             const { error: dbError } = await supabase
                 .from('collaborator_documents')
                 .delete()
                 .eq('id', id);
 
             if (dbError) throw dbError;
+
+            if (doc?.collaborator_id) {
+                cache.del(`docs_${doc.collaborator_id}`);
+            }
 
             return true;
         } catch (error) {

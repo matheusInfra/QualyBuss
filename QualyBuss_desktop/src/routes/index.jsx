@@ -6,6 +6,9 @@ import Dashboard from '../pages/Dashboard';
 import Colaboradores from '../pages/colaboradores';
 import Documentacao from '../pages/documentacao';
 import Importacao from '../pages/importacao';
+import Ferias from '../pages/ferias';
+import Movimentacoes from '../pages/movimentacoes';
+import Ausencias from '../pages/ausencias';
 
 const PrivateRoute = ({ children }) => {
   const { user } = useAuth();
@@ -22,6 +25,9 @@ export function AppRoutes() {
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/colaboradores" element={<Colaboradores />} />
+          <Route path="/ferias" element={<Ferias />} />
+          <Route path="/movimentacoes" element={<Movimentacoes />} />
+          <Route path="/ausencias" element={<Ausencias />} />
           <Route path="/documentacao" element={<Documentacao />} />
           <Route path="/importacao" element={<Importacao />} />
         </Route>

@@ -3,11 +3,12 @@ import { NavLink } from 'react-router-dom';
 import logo from '../../assets/logo.svg';
 import { useAuth } from '../../contexts/AuthContext';
 
-const Sidebar = () => {
+const Sidebar = ({ isMobileOpen, onMobileClose }) => {
     const { user, signOut } = useAuth();
-    const [isOpen, setIsOpen] = useState(true);
+    const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
 
-    const toggleSidebar = () => setIsOpen(!isOpen);
+    // Desktop toggle only affects desktop state
+    const toggleDesktopSidebar = () => setIsDesktopCollapsed(!isDesktopCollapsed);
 
     const menuItems = [
         {
@@ -21,6 +22,27 @@ const Sidebar = () => {
             path: '/colaboradores', label: 'Colaboradores', icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            )
+        },
+        {
+            path: '/ferias', label: 'Férias e Folgas', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            )
+        },
+        {
+            path: '/movimentacoes', label: 'Movimentações', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+            )
+        },
+        {
+            path: '/ausencias', label: 'Gestão de Ausências', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             )
         },
@@ -41,80 +63,114 @@ const Sidebar = () => {
     ];
 
     return (
-        <div className={`${isOpen ? 'w-64' : 'w-20'} h-screen bg-slate-900 transition-all duration-300 ease-in-out flex flex-col shadow-xl`}>
-            {/* Header com Logo e Toggle */}
-            <div className="flex items-center justify-between p-4 h-20 border-b border-slate-700">
-                <div className={`flex items-center gap-3 overflow-hidden ${!isOpen && 'hidden'}`}>
-                    <img src={logo} alt="Logo" className="w-8 h-8 rounded-md" />
-                    <span className="text-white font-bold text-lg whitespace-nowrap">QualyBuss</span>
-                </div>
+        <>
+            {/* Mobile Backdrop */}
+            {isMobileOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-30 md:hidden transition-opacity"
+                    onClick={onMobileClose}
+                />
+            )}
 
-                <button
-                    onClick={toggleSidebar}
-                    className={`p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors ${!isOpen && 'mx-auto'}`}
-                >
-                    {isOpen ? (
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                        </svg>
-                    ) : (
+            {/* Sidebar Container */}
+            <div className={`
+                fixed inset-y-0 left-0 z-40 bg-slate-900 shadow-2xl transition-all duration-300 ease-in-out flex flex-col
+                md:static md:shadow-none md:translate-x-0
+                ${isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64'} 
+                ${isDesktopCollapsed ? 'md:w-20' : 'md:w-64'}
+            `}>
+
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 h-20 border-b border-slate-700">
+                    <div className={`flex items-center gap-3 overflow-hidden ${isDesktopCollapsed ? 'md:hidden' : ''}`}>
                         <img src={logo} alt="Logo" className="w-8 h-8 rounded-md" />
-                    )}
-                </button>
-            </div>
-
-            {/* Menu Navigation */}
-            <nav className="flex-1 py-6 px-3 flex flex-col gap-2 overflow-y-auto">
-                {menuItems.map((item) => (
-                    <NavLink
-                        key={item.path}
-                        to={item.path}
-                        className={({ isActive }) => `
-              flex items-center px-4 py-3 rounded-xl transition-all duration-200 group
-              ${isActive
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-                                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                            }
-            `}
-                    >
-                        <div className="flex-shrink-0">
-                            {item.icon}
-                        </div>
-                        <span className={`ml-3 font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ${!isOpen ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                            {item.label}
-                        </span>
-
-                        {/* Tooltip para quando fechado */}
-                        {!isOpen && (
-                            <div className="absolute left-20 bg-slate-800 text-white text-sm px-2 py-1 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
-                                {item.label}
-                            </div>
-                        )}
-                    </NavLink>
-                ))}
-            </nav>
-
-            {/* Footer User Info */}
-            <div className={`p-4 border-t border-slate-700 bg-slate-800/50`}>
-                <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${!isOpen ? 'justify-center' : ''}`}>
-                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                        {user?.email?.charAt(0).toUpperCase() || 'U'}
+                        <span className="text-white font-bold text-lg whitespace-nowrap">QualyBuss</span>
                     </div>
 
-                    <div className={`flex flex-col overflow-hidden transition-all duration-300 ${!isOpen ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                        <span className="text-white text-sm font-medium truncate" title={user?.email}>
-                            {user?.email?.split('@')[0]}
-                        </span>
-                        <button
-                            onClick={signOut}
-                            className="text-xs text-slate-400 hover:text-red-400 text-left transition-colors flex items-center gap-1"
+                    {/* Desktop Toggle */}
+                    <button
+                        onClick={toggleDesktopSidebar}
+                        className={`hidden md:block p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors ${isDesktopCollapsed ? 'mx-auto' : ''}`}
+                    >
+                        {isDesktopCollapsed ? (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                        ) : (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        )}
+                    </button>
+
+                    {/* Mobile Close Button */}
+                    <button
+                        onClick={onMobileClose}
+                        className="md:hidden p-2 text-slate-400 hover:text-white"
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Menu Navigation */}
+                <nav className="flex-1 py-6 px-3 flex flex-col gap-2 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+                    {menuItems.map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => onMobileClose && onMobileClose()} // Auto close on mobile nav
+                            className={({ isActive }) => `
+                                flex items-center px-4 py-3 rounded-xl transition-all duration-200 group
+                                ${isActive
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                }
+                            `}
                         >
-                            Sair do Sistema
-                        </button>
+                            <div className="flex-shrink-0">
+                                {item.icon}
+                            </div>
+                            <span className={`
+                                ml-3 font-medium whitespace-nowrap overflow-hidden transition-all duration-300
+                                ${isDesktopCollapsed ? 'md:w-0 md:opacity-0' : 'md:w-auto md:opacity-100'}
+                            `}>
+                                {item.label}
+                            </span>
+
+                            {/* Tooltip (Desktop Collapsed only) */}
+                            {isDesktopCollapsed && (
+                                <div className="hidden md:block absolute left-20 bg-slate-800 text-white text-sm px-2 py-1 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
+                                    {item.label}
+                                </div>
+                            )}
+                        </NavLink>
+                    ))}
+                </nav>
+
+                {/* Footer User Info */}
+                <div className={`p-4 border-t border-slate-700 bg-slate-800/50`}>
+                    <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${isDesktopCollapsed ? 'md:justify-center' : ''}`}>
+                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                            {user?.email?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+
+                        <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isDesktopCollapsed ? 'md:w-0 md:opacity-0' : 'md:w-auto md:opacity-100'}`}>
+                            <span className="text-white text-sm font-medium truncate" title={user?.email}>
+                                {user?.email?.split('@')[0]}
+                            </span>
+                            <button
+                                onClick={signOut}
+                                className="text-xs text-slate-400 hover:text-red-400 text-left transition-colors flex items-center gap-1"
+                            >
+                                Sair do Sistema
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 

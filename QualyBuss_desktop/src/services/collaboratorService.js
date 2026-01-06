@@ -1,20 +1,92 @@
 import { supabase } from './supabase';
+import { cache } from '../utils/cacheManager';
 
 export const collaboratorService = {
     // Buscar todos os colaboradores
     async getAll() {
-        // Tenta buscar do Supabase
+        // Alias para manter compatibilidade, mas idealmente migraríamos para paginação
+        return this.getAllRaw();
+    },
+
+    async getAllRaw() {
         const { data, error } = await supabase
             .from('collaborators')
             .select('*')
             .order('full_name');
-
         if (error) {
-            console.error('Erro ao buscar colaboradores:', error);
+            console.error('Erro ao buscar todos:', error);
             return [];
         }
-
         return data || [];
+    },
+
+    // Buscar com Paginação e Filtros
+    async getPaginated({ page = 1, limit = 30, status = 'active', searchTerm = '' }) {
+        const cacheKey = `collab_list_${page}_${limit}_${status}_${searchTerm}`;
+        const cached = cache.get(cacheKey);
+
+        if (cached) {
+            return cached;
+        }
+
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        // Otimização: Selecionar apenas campos necessários para o Card/Lista
+        let query = supabase
+            .from('collaborators')
+            .select('id, full_name, role, department, active, avatar_url', { count: 'exact' });
+
+        // Filtro de Status
+        if (status === 'active') {
+            query = query.eq('active', true);
+        } else if (status === 'inactive') {
+            query = query.eq('active', false);
+        }
+        // 'all' não aplica filtro de active
+
+        // Filtro de Busca (Nome ou Cargo)
+        if (searchTerm) {
+            query = query.or(`full_name.ilike.%${searchTerm}%,role.ilike.%${searchTerm}%`);
+        }
+
+        const { data, count, error } = await query
+            .order('full_name')
+            .range(from, to);
+
+        if (error) {
+            console.error('Erro na paginação:', error);
+            return { data: [], count: 0 };
+        }
+
+        const result = { data, count };
+        cache.set(cacheKey, result, 300); // Cache por 5 minutos
+        return result;
+    },
+
+    // Verificar duplicidade de CPF
+    async checkDuplicate(cpf, excludeId = null) {
+        if (!cpf) return false;
+
+        let query = supabase
+            .from('collaborators')
+            .select('id')
+            .eq('cpf', cpf);
+
+        if (excludeId) {
+            query = query.neq('id', excludeId);
+        }
+
+        const { data, error } = await query.single();
+
+        // Se encontrar um registro (data não é null), é duplicado.
+        // Se der erro 'PGRST116' (0 rows), não é duplicado.
+        if (error && error.code !== 'PGRST116') {
+            console.error('Erro ao verificar duplicidade', error);
+            return false; // Assume falso em caso de erro para não bloquear, ou trate diferente
+        }
+
+        return !!data;
     },
 
     // Buscar por ID
@@ -38,6 +110,7 @@ export const collaboratorService = {
             .single();
 
         if (error) throw error;
+        cache.invalidate('collab_list'); // Limpa cache de listas
         return data;
     },
 
@@ -51,6 +124,7 @@ export const collaboratorService = {
             .single();
 
         if (error) throw error;
+        cache.invalidate('collab_list'); // Limpa cache
         return data;
     },
 
@@ -64,6 +138,7 @@ export const collaboratorService = {
             .single();
 
         if (error) throw error;
+        cache.invalidate('collab_list'); // Limpa cache
         return data;
     },
 

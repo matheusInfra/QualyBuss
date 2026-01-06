@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { cepService } from '../../services/cepService';
+import { collaboratorService } from '../../services/collaboratorService';
 import { useNotification } from '../../context/NotificationContext';
+import { validators } from '../../utils/validators';
 
 const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving }) => {
     const { notify } = useNotification();
@@ -28,16 +30,53 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
         work_regime: 'Presencial',
         salary: ''
     });
+    const [errors, setErrors] = useState({});
     const [avatarFile, setAvatarFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
     const fileInputRef = useRef(null);
     const [isLoadingCep, setIsLoadingCep] = useState(false);
 
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
     // --- Style Constants (Matching Document Module) ---
     const LABEL_CLASS = "block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1";
-    const INPUT_CLASS = "w-full px-3 py-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 hover:border-slate-400";
+    const INPUT_CLASS = (hasError) => `w-full px-3 py-2.5 bg-white border ${hasError ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'} text-slate-900 text-sm rounded-lg focus:ring-2 outline-none transition-all placeholder:text-slate-400 hover:border-slate-400`;
+    const ERROR_MSG_CLASS = "text-xs text-red-500 mt-1 ml-1 font-medium animate-fade-in";
 
     // --------------------------------------------------
+
+    const validateForm = async () => {
+        const newErrors = {};
+
+        // Validar CPF
+        if (formData.cpf && !validators.cpf(formData.cpf)) {
+            newErrors.cpf = "CPF inválido.";
+        } else if (formData.cpf) {
+            // Check duplicidade apenas se CPF for válido
+            const isDuplicate = await collaboratorService.checkDuplicate(formData.cpf, collaborator?.id);
+            if (isDuplicate) {
+                newErrors.cpf = "CPF já cadastrado para outro colaborador.";
+            }
+        }
+
+        // RG (Opcional, mas se preenchido valida tamanho)
+        if (formData.rg && !validators.rg(formData.rg)) {
+            newErrors.rg = "RG parece incompleto.";
+        }
+
+        // CBO
+        if (formData.cbo && !validators.cbo(formData.cbo)) {
+            newErrors.cbo = "CBO deve ter 6 dígitos.";
+        }
+
+        // PIS (Opcional por enquanto)
+        if (formData.pis && !validators.pis(formData.pis)) {
+            newErrors.pis = "PIS inválido.";
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleCepBlur = async (e) => {
         const cep = e.target.value?.replace(/\D/g, '');
@@ -50,7 +89,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                     address_street: address.address_street,
                     address_city: address.address_city,
                     address_state: address.address_state,
-                    // address_zip_code: address.address_zip_code 
+                    // address_zip_code: address.address_zip_code
                 }));
                 notify.success('Endereço Encontrado', 'Dados preenchidos automaticamente.');
             } catch (error) {
@@ -62,14 +101,38 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
         }
     };
 
-    // Reset form or load data when drawer opens
+    // Load full data when drawer opens for editing
     useEffect(() => {
         if (isOpen) {
             setAvatarFile(null);
+            setErrors({}); // Limpa erros
+            setActiveTab('pessoal');
+
             if (collaborator) {
-                setFormData(collaborator);
-                setPreviewUrl(collaborator.avatar_url || null);
+                // Modo Edição: Buscar dados completos para garantir que tenhamos CPF, RG, etc.
+                const loadFullDetails = async () => {
+                    setIsLoadingDetails(true);
+                    try {
+                        const fullData = await collaboratorService.getById(collaborator.id);
+                        if (fullData) {
+                            setFormData(fullData);
+                            setPreviewUrl(fullData.avatar_url || null);
+                        } else {
+                            // Fallback se falhar (não deveria acontecer)
+                            setFormData(collaborator);
+                            setPreviewUrl(collaborator.avatar_url || null);
+                        }
+                    } catch (err) {
+                        console.error("Erro ao carregar detalhes", err);
+                        notify.error("Erro", "Não foi possível carregar os detalhes completos.");
+                        setFormData(collaborator); // Use partial data as fallback
+                    } finally {
+                        setIsLoadingDetails(false);
+                    }
+                };
+                loadFullDetails();
             } else {
+                // Modo Novo
                 setFormData({
                     active: true,
                     full_name: '', cpf: '', rg: '', birth_date: '', gender: '', marital_status: '',
@@ -78,14 +141,18 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                     contract_type: 'CLT', work_regime: 'Presencial', salary: ''
                 });
                 setPreviewUrl(null);
+                setIsLoadingDetails(false);
             }
-            setActiveTab('pessoal');
         }
-    }, [isOpen, collaborator]);
+    }, [isOpen, collaborator]); // collaborator aqui é o objeto parcial vindo da lista
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        // Limpa erro do campo ao digitar
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: null }));
+        }
     };
 
     const handleFileChange = (e) => {
@@ -100,8 +167,16 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
         fileInputRef.current.click();
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Validate
+        const isValid = await validateForm();
+        if (!isValid) {
+            notify.error("Atenção", "Verifique os campos com erro.");
+            return;
+        }
+
         onSave(formData, avatarFile);
     };
 
@@ -158,7 +233,16 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                         </div>
 
                         {/* Content Area */}
-                        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-slate-200">
+                        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-slate-200 relative">
+                            {isLoadingDetails && (
+                                <div className="absolute inset-0 z-50 bg-white/80 flex items-center justify-center backdrop-blur-sm">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                        <p className="text-sm font-medium text-slate-600">Carregando dados...</p>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="max-w-3xl mx-auto space-y-8">
 
                                 {/* Tab: PESSOAL */}
@@ -197,23 +281,25 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="md:col-span-2">
                                                     <label className={LABEL_CLASS}>Nome Completo <span className="text-red-500">*</span></label>
-                                                    <input name="full_name" value={formData.full_name || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="Ex: Maria da Silva" required />
+                                                    <input name="full_name" value={formData.full_name || ''} onChange={handleChange} className={INPUT_CLASS(!!errors.full_name)} placeholder="Ex: Maria da Silva" required />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>CPF</label>
-                                                    <input name="cpf" value={formData.cpf || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="000.000.000-00" />
+                                                    <input name="cpf" value={formData.cpf || ''} onChange={handleChange} className={INPUT_CLASS(!!errors.cpf)} placeholder="000.000.000-00" />
+                                                    {errors.cpf && <p className={ERROR_MSG_CLASS}>{errors.cpf}</p>}
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>RG</label>
-                                                    <input name="rg" value={formData.rg || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="00.000.000-0" />
+                                                    <input name="rg" value={formData.rg || ''} onChange={handleChange} className={INPUT_CLASS(!!errors.rg)} placeholder="00.000.000-0" />
+                                                    {errors.rg && <p className={ERROR_MSG_CLASS}>{errors.rg}</p>}
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Data de Nascimento</label>
-                                                    <input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className={INPUT_CLASS} />
+                                                    <input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className={INPUT_CLASS()} />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Gênero</label>
-                                                    <select name="gender" value={formData.gender || ''} onChange={handleChange} className={INPUT_CLASS}>
+                                                    <select name="gender" value={formData.gender || ''} onChange={handleChange} className={INPUT_CLASS()}>
                                                         <option value="">Selecione...</option>
                                                         <option value="Masculino">Masculino</option>
                                                         <option value="Feminino">Feminino</option>
@@ -237,7 +323,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                             value={formData.address_zip_code || ''}
                                                             onChange={handleChange}
                                                             onBlur={handleCepBlur}
-                                                            className={`${INPUT_CLASS} pr-10`}
+                                                            className={`${INPUT_CLASS()} pr-10`}
                                                             placeholder="00000-000"
                                                             maxLength={9}
                                                         />
@@ -250,19 +336,19 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 </div>
                                                 <div className="col-span-6 md:col-span-4">
                                                     <label className={LABEL_CLASS}>Rua</label>
-                                                    <input name="address_street" value={formData.address_street || ''} onChange={handleChange} className={`${INPUT_CLASS} bg-slate-50 text-slate-500`} readOnly placeholder="Preenchimento automático" />
+                                                    <input name="address_street" value={formData.address_street || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly placeholder="Preenchimento automático" />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Número</label>
-                                                    <input name="address_number" value={formData.address_number || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="123" />
+                                                    <input name="address_number" value={formData.address_number || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="123" />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Cidade</label>
-                                                    <input name="address_city" value={formData.address_city || ''} onChange={handleChange} className={`${INPUT_CLASS} bg-slate-50 text-slate-500`} readOnly />
+                                                    <input name="address_city" value={formData.address_city || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Estado</label>
-                                                    <input name="address_state" value={formData.address_state || ''} onChange={handleChange} className={`${INPUT_CLASS} bg-slate-50 text-slate-500`} readOnly placeholder="UF" maxLength={2} />
+                                                    <input name="address_state" value={formData.address_state || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly placeholder="UF" maxLength={2} />
                                                 </div>
                                             </div>
                                         </section>
@@ -279,19 +365,19 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="md:col-span-2">
                                                     <label className={LABEL_CLASS}>Email Corporativo</label>
-                                                    <input type="email" name="corporate_email" value={formData.corporate_email || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="joao@empresa.com" />
+                                                    <input type="email" name="corporate_email" value={formData.corporate_email || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="joao@empresa.com" />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Departamento</label>
-                                                    <input name="department" value={formData.department || ''} onChange={handleChange} className={INPUT_CLASS} placeholder="Ex: Engenharia" />
+                                                    <input name="department" value={formData.department || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Ex: Engenharia" />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Cargo <span className="text-red-500">*</span></label>
-                                                    <input name="role" value={formData.role || ''} onChange={handleChange} className={INPUT_CLASS} required placeholder="Ex: Senior Developer" />
+                                                    <input name="role" value={formData.role || ''} onChange={handleChange} className={INPUT_CLASS()} required placeholder="Ex: Senior Developer" />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Data de Admissão</label>
-                                                    <input type="date" name="admission_date" value={formData.admission_date || ''} onChange={handleChange} className={INPUT_CLASS} />
+                                                    <input type="date" name="admission_date" value={formData.admission_date || ''} onChange={handleChange} className={INPUT_CLASS()} />
                                                 </div>
                                             </div>
                                         </section>
@@ -303,11 +389,13 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
                                                     <label className={LABEL_CLASS}>CBO</label>
-                                                    <input name="cbo" value={formData.cbo || ''} onChange={handleChange} className={INPUT_CLASS} />
+                                                    <input name="cbo" value={formData.cbo || ''} onChange={handleChange} className={INPUT_CLASS(!!errors.cbo)} />
+                                                    {errors.cbo && <p className={ERROR_MSG_CLASS}>{errors.cbo}</p>}
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>PIS/PASEP</label>
-                                                    <input name="pis" value={formData.pis || ''} onChange={handleChange} className={INPUT_CLASS} />
+                                                    <input name="pis" value={formData.pis || ''} onChange={handleChange} className={INPUT_CLASS(!!errors.pis)} />
+                                                    {errors.pis && <p className={ERROR_MSG_CLASS}>{errors.pis}</p>}
                                                 </div>
                                             </div>
                                         </section>
@@ -324,7 +412,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
                                                     <label className={LABEL_CLASS}>Tipo de Contrato</label>
-                                                    <select name="contract_type" value={formData.contract_type || ''} onChange={handleChange} className={INPUT_CLASS}>
+                                                    <select name="contract_type" value={formData.contract_type || ''} onChange={handleChange} className={INPUT_CLASS()}>
                                                         <option value="CLT">CLT</option>
                                                         <option value="PJ">PJ</option>
                                                         <option value="Estágio">Estágio</option>
@@ -332,7 +420,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Regime</label>
-                                                    <select name="work_regime" value={formData.work_regime || ''} onChange={handleChange} className={INPUT_CLASS}>
+                                                    <select name="work_regime" value={formData.work_regime || ''} onChange={handleChange} className={INPUT_CLASS()}>
                                                         <option value="Presencial">Presencial</option>
                                                         <option value="Híbrido">Híbrido</option>
                                                         <option value="Remoto">Remoto</option>
@@ -342,7 +430,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                     <label className={LABEL_CLASS}>Salário Base</label>
                                                     <div className="relative">
                                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium">R$</div>
-                                                        <input type="number" name="salary" value={formData.salary || ''} onChange={handleChange} className={`${INPUT_CLASS} pl-10 font-medium`} placeholder="0,00" />
+                                                        <input type="number" name="salary" value={formData.salary || ''} onChange={handleChange} className={`${INPUT_CLASS()} pl-10 font-medium`} placeholder="0,00" />
                                                     </div>
                                                 </div>
 

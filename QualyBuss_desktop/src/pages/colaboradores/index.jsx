@@ -13,11 +13,23 @@ const Colaboradores = () => {
     const [selectedCollab, setSelectedCollab] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
 
+    // New Pagination & Filter States
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [filterStatus, setFilterStatus] = useState('active'); // 'active', 'inactive', 'all'
+    const ITEMS_PER_PAGE = 30;
+
     const fetchData = async () => {
         setLoading(true);
         try {
-            const data = await collaboratorService.getAll();
+            const { data, count } = await collaboratorService.getPaginated({
+                page: currentPage,
+                limit: ITEMS_PER_PAGE,
+                status: filterStatus,
+                searchTerm: searchTerm
+            });
             setCollaborators(data || []);
+            setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
         } catch (error) {
             console.error("Error fetching collaborators", error);
             notify.error("Erro ao carregar", "Não foi possível carregar a lista de colaboradores.");
@@ -26,9 +38,13 @@ const Colaboradores = () => {
         }
     };
 
+    // Refetch when Page, Status or Search changes
     useEffect(() => {
-        fetchData();
-    }, []);
+        const delayDebounceFn = setTimeout(() => {
+            fetchData();
+        }, 300); // Debounce search
+        return () => clearTimeout(delayDebounceFn);
+    }, [currentPage, filterStatus, searchTerm]);
 
     const handleCreateNew = () => {
         setSelectedCollab(null);
@@ -44,8 +60,6 @@ const Colaboradores = () => {
         setIsSaving(true);
         try {
             let dataToSave = { ...formData };
-
-            // Se houver nova foto, faz upload primeiro
             if (avatarFile) {
                 const fileName = `avatar_${Date.now()}_${avatarFile.name.replace(/\s+/g, '-')}`;
                 const publicUrl = await collaboratorService.uploadAvatar(avatarFile, fileName);
@@ -53,30 +67,28 @@ const Colaboradores = () => {
             }
 
             if (selectedCollab) {
-                // Update
                 await collaboratorService.update(selectedCollab.id, dataToSave);
                 notify.success("Atualizado", "Dados do colaborador atualizados com sucesso!");
             } else {
-                // Create
                 await collaboratorService.create(dataToSave);
                 notify.success("Cadastrado", "Novo colaborador registrado com sucesso!");
             }
             setIsDrawerOpen(false);
-            fetchData(); // Recarrega a lista
+            fetchData();
         } catch (error) {
             console.error("Error saving collaborator", error);
-            notify.error("Erro ao Salvar", "Ocorreu um problema ao salvar os dados. Tente novamente.");
+            notify.error("Erro ao Salvar", "Ocorreu um problema ao salvar os dados.");
         } finally {
             setIsSaving(false);
         }
     };
 
-    // Filtro Local
-    const filteredCollaborators = collaborators.filter(c =>
-        c.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.department?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
 
     return (
         <div className="max-w-7xl mx-auto">
@@ -92,21 +104,6 @@ const Colaboradores = () => {
                 </div>
 
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="relative flex-1 md:w-64">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </span>
-                        <input
-                            type="text"
-                            placeholder="Buscar colaborador..."
-                            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-
                     <button
                         onClick={handleCreateNew}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-95 whitespace-nowrap flex items-center gap-2"
@@ -119,16 +116,56 @@ const Colaboradores = () => {
                 </div>
             </div>
 
+            {/* Controls Bar: Tabs & Search */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+
+                {/* Status Tabs */}
+                <div className="flex bg-slate-100 p-1 rounded-lg">
+                    {['active', 'inactive', 'all'].map((status) => (
+                        <button
+                            key={status}
+                            onClick={() => { setFilterStatus(status); setCurrentPage(1); }}
+                            className={`
+                                px-4 py-2 text-sm font-medium rounded-md transition-all
+                                ${filterStatus === status
+                                    ? 'bg-white text-blue-600 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'}
+                            `}
+                        >
+                            {status === 'active' && 'Ativos'}
+                            {status === 'inactive' && 'Inativos'}
+                            {status === 'all' && 'Todos'}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Search */}
+                <div className="relative w-full md:w-72">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input
+                        type="text"
+                        placeholder="Buscar por nome ou cargo..."
+                        className="w-full pl-9 pr-4 py-2 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                        value={searchTerm}
+                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    />
+                </div>
+            </div>
+
             {/* Grid Content */}
             {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="bg-white h-64 rounded-2xl animate-pulse shadow-sm"></div>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                        <div key={i} className="bg-white h-64 rounded-2xl animate-pulse shadow-sm border border-slate-100"></div>
                     ))}
                 </div>
             ) : (
                 <>
-                    {filteredCollaborators.length === 0 ? (
+                    {collaborators.length === 0 ? (
                         <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-slate-100">
                             <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <svg className="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -136,17 +173,42 @@ const Colaboradores = () => {
                                 </svg>
                             </div>
                             <h3 className="text-lg font-medium text-slate-900">Nenhum colaborador encontrado</h3>
-                            <p className="text-slate-500">Tente ajustar sua busca ou adicione um novo.</p>
+                            <p className="text-slate-500">Tente ajustar sua busca ou filtro.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in-up">
-                            {filteredCollaborators.map(collab => (
+                            {collaborators.map(collab => (
                                 <CollaboratorCard
                                     key={collab.id}
                                     data={collab}
                                     onClick={handleEdit}
                                 />
                             ))}
+                        </div>
+                    )}
+
+                    {/* Pagination Controls */}
+                    {collaborators.length > 0 && (
+                        <div className="flex items-center justify-between mt-8 border-t border-slate-200 pt-6">
+                            <p className="text-sm text-slate-500">
+                                Página <span className="font-bold text-slate-800">{currentPage}</span> de <span className="font-bold text-slate-800">{totalPages}</span>
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Anterior
+                                </button>
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Próxima
+                                </button>
+                            </div>
                         </div>
                     )}
                 </>
