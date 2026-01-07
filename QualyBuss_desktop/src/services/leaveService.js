@@ -1,24 +1,27 @@
 import { supabase } from './supabase';
 
 export const leaveService = {
-    async getRequests({ month, year, collaboratorId } = {}) {
+    async getRequests({ month, year, collaboratorId, page = 1, limit = 10 } = {}) {
         let query = supabase
             .from('leave_requests')
             .select(`
                 *,
                 collaborators ( full_name, avatar_url, role )
-            `)
-            .order('start_date', { ascending: true });
+            `, { count: 'exact' })
+            .order('start_date', { ascending: false }); // Show newest first usually makes more sense for lists
 
-        // Filter by month overlap if needed, but for now fetching all for the year is safer for calendar
-        // Or specific collaborator history
         if (collaboratorId) {
             query = query.eq('collaborator_id', collaboratorId);
         }
 
-        const { data, error } = await query;
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        query = query.range(from, to);
+
+        const { data, count, error } = await query;
         if (error) throw error;
-        return data;
+        return { data, count };
     },
 
     async createRequest(requestData) {

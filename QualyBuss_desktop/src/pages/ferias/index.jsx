@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { holidayService } from '../../services/holidayService';
 import { leaveService } from '../../services/leaveService';
 import { collaboratorService } from '../../services/collaboratorService';
+import { documentService } from '../../services/documentService';
 import { useNotification } from '../../context/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -44,6 +45,14 @@ const Ferias = () => {
     const [activeTab, setActiveTab] = useState('CALENDAR');
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
+    // Pagination State
+    const [page, setPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const ITEMS_PER_PAGE = 10;
+
+    // Attachment State
+    const [attachment, setAttachment] = useState(null);
+
     // Load Initial Data
     useEffect(() => {
         loadHolidays();
@@ -61,7 +70,7 @@ const Ferias = () => {
 
     useEffect(() => {
         loadLeaves();
-    }, [currentDate, isModalOpen]);
+    }, [currentDate, isModalOpen, activeTab, page]);
 
     const loadHolidays = async () => {
         const data = await holidayService.getHolidays(selectedYear);
@@ -75,8 +84,19 @@ const Ferias = () => {
 
     const loadLeaves = async () => {
         try {
-            const data = await leaveService.getRequests();
+            // If Calendar, we need ALL events to render dots correctly.
+            // If List (Requests), we paginate.
+            const isCalendar = activeTab === 'CALENDAR';
+            const limit = isCalendar ? 1000 : ITEMS_PER_PAGE;
+            const currentPage = isCalendar ? 1 : page;
+
+            const { data, count } = await leaveService.getRequests({
+                page: currentPage,
+                limit: limit
+            });
+
             setLeaves(data || []);
+            setTotalCount(count || 0);
         } catch (error) {
             console.error(error);
         } finally {
@@ -139,6 +159,7 @@ const Ferias = () => {
     // Modal Handlers
     const openModal = (dateStr) => {
         setEditingId(null); // Reset edit mode
+        setAttachment(null); // Reset attachment
         setFormData({
             collaboratorId: '',
             startDate: dateStr,
@@ -150,11 +171,18 @@ const Ferias = () => {
         setIsModalOpen(true);
     };
 
-    const validateDate = (startStr) => {
+    const validateDate = (startStr, currentType) => {
         if (!startStr) return;
-        const startObj = new Date(startStr + 'T12:00:00'); // mid-day to avoid timezone edge cases
+        // Check type from argument or state
+        const typeToCheck = currentType || formData.type;
+
+        if (typeToCheck !== 'FERIAS') {
+            setValidationError(null);
+            return;
+        }
+
+        const startObj = new Date(startStr + 'T12:00:00');
         const check = holidayService.isBlockedForStart(startObj, holidays);
-        // If editing, maybe relax rules? No, let's keep them strict.
         setValidationError(check.blocked ? check.reasons : null);
     };
 
@@ -163,7 +191,7 @@ const Ferias = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
 
         if (name === 'startDate') {
-            validateDate(value);
+            validateDate(value, formData.type);
         }
     };
 
@@ -203,6 +231,12 @@ const Ferias = () => {
                     reason: formData.reason,
                     justification_for_change: `Alteração: ${formData.reason}`
                 });
+
+                // Handle Attachment for Edit logic if adding new
+                if (attachment) {
+                    await documentService.uploadDocument(attachment, formData.collaboratorId, 'Justificativa Ausência');
+                }
+
                 notify.success('Atualizado', 'Solicitação enviada para reanálise.');
             } else {
                 // Create Logic
@@ -215,6 +249,12 @@ const Ferias = () => {
                     status: 'PENDING', // V2 starts as PENDING always
                     reason: formData.reason
                 });
+
+                // Start Upload
+                if (attachment) {
+                    await documentService.uploadDocument(attachment, formData.collaboratorId, 'Justificativa Ausência');
+                }
+
                 notify.success('Criado', 'Solicitação aguardando aprovação.');
             }
             setIsModalOpen(false);
@@ -361,8 +401,13 @@ const Ferias = () => {
                                                 let bgColor = 'bg-slate-200';
 
                                                 if (leave.status === 'PENDING') bgColor = 'bg-amber-400 border-amber-500 animate-pulse';
-                                                else if (leave.status === 'APPROVED') bgColor = 'bg-emerald-500 border-emerald-600';
                                                 else if (isGhost) bgColor = 'bg-red-300 opacity-60 border-red-400';
+                                                else if (leave.status === 'APPROVED') {
+                                                    if (leave.type === 'FALTA') bgColor = 'bg-red-500 border-red-600';
+                                                    else if (leave.type === 'ATESTADO') bgColor = 'bg-cyan-500 border-cyan-600';
+                                                    else if (leave.type === 'FOLGA') bgColor = 'bg-blue-500 border-blue-600';
+                                                    else bgColor = 'bg-emerald-500 border-emerald-600'; // Default/Ferias
+                                                }
 
                                                 return (
                                                     <div
@@ -440,7 +485,12 @@ const Ferias = () => {
                                         <tr key={req.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="p-4 font-medium text-slate-800">{req.collaborators?.full_name}</td>
                                             <td className="p-4">
-                                                <span className={`text-xs font-bold px-2 py-1 rounded-md uppercase ${req.type === 'FERIAS' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                <span className={`text-xs font-bold px-2 py-1 rounded-md uppercase 
+                                                    ${req.type === 'FERIAS' ? 'bg-emerald-100 text-emerald-700'
+                                                        : req.type === 'FOLGA' ? 'bg-blue-100 text-blue-700'
+                                                            : req.type === 'FALTA' ? 'bg-red-100 text-red-700'
+                                                                : req.type === 'ATESTADO' ? 'bg-cyan-100 text-cyan-700'
+                                                                    : 'bg-purple-100 text-purple-700'}`}>
                                                     {req.type}
                                                 </span>
                                             </td>
@@ -545,17 +595,23 @@ const Ferias = () => {
                                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Tipo de Ausência</label>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                         {[
-                                            { id: 'FERIAS', label: 'Férias', desc: 'Regras da CLT aplicáveis', color: 'emerald' },
-                                            { id: 'FOLGA', label: 'Folga / Abono', desc: 'Flexibilidade de datas', color: 'blue' },
-                                            { id: 'LICENCA', label: 'Licença Médica', desc: 'Requer atestado', color: 'purple' }
+                                            { id: 'FERIAS', label: 'Férias', desc: 'Regras da CLT', color: 'emerald' },
+                                            { id: 'FOLGA', label: 'Folga', desc: 'Abono de horas', color: 'blue' },
+                                            { id: 'LICENCA', label: 'Licença', desc: 'Maternidade/Outros', color: 'purple' },
+                                            { id: 'FALTA', label: 'Falta', desc: 'Ausência injustificada', color: 'red' },
+                                            { id: 'ATESTADO', label: 'Atestado', desc: 'Justificativa médica', color: 'cyan' }
                                         ].map(opt => (
                                             <button
                                                 key={opt.id}
                                                 type="button"
                                                 onClick={() => {
                                                     setFormData(prev => ({ ...prev, type: opt.id }));
-                                                    // Trigger validation update immediately
-                                                    validateDate(formData.startDate, opt.id);
+                                                    // Trigger validation check with new type
+                                                    if (opt.id === 'FERIAS') {
+                                                        validateDate(formData.startDate);
+                                                    } else {
+                                                        setValidationError(null); // Clear errors for non-FERIAS
+                                                    }
                                                 }}
                                                 className={`
                                                     relative p-4 rounded-xl border-2 text-left transition-all group
@@ -657,10 +713,36 @@ const Ferias = () => {
                                         value={formData.reason}
                                         onChange={handleFormChange}
                                         rows="2"
-                                        className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none"
-                                        placeholder="Opcional: Descreva o motivo..."
                                     ></textarea>
                                 </div>
+
+                                {/* 5. Attachment (Conditionally displayed) */}
+                                {['FALTA', 'ATESTADO'].includes(formData.type) && (
+                                    <div className="animate-fade-in-up">
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Anexar Comprovante (Obrigatório)</label>
+                                        <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors group">
+                                            <input
+                                                type="file"
+                                                onChange={(e) => setAttachment(e.target.files[0])}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                accept=".pdf,.jpg,.jpeg,.png"
+                                            />
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${attachment ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 group-hover:text-blue-500 group-hover:bg-blue-50'}`}>
+                                                    {attachment ? (
+                                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                    ) : (
+                                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm font-medium text-slate-600">
+                                                    {attachment ? attachment.name : 'Clique para selecionar ou arraste aqui'}
+                                                </p>
+                                                {!attachment && <p className="text-xs text-slate-400">PDF, JPG ou PNG (Max 5MB)</p>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Footer Actions */}
                                 <div className="pt-6 border-t border-slate-100 flex gap-4">

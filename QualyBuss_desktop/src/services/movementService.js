@@ -2,7 +2,8 @@ import { supabase } from './supabase';
 
 export const movementService = {
     // List all movements with optional filters
-    async getMovements({ status, collaboratorId } = {}) {
+    // List all movements with optional filters
+    async getMovements({ status, collaboratorId, page = 1, limit = 10 } = {}) {
         let query = supabase
             .from('job_movements')
             .select(`
@@ -13,15 +14,20 @@ export const movementService = {
                     role,
                     avatar_url
                 )
-            `)
+            `, { count: 'exact' })
             .order('effective_date', { ascending: false });
 
         if (status) query = query.eq('status', status);
         if (collaboratorId) query = query.eq('collaborator_id', collaboratorId);
 
-        const { data, error } = await query;
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        query = query.range(from, to);
+
+        const { data, count, error } = await query;
         if (error) throw error;
-        return data;
+        return { data, count };
     },
 
     // Create a new movement request

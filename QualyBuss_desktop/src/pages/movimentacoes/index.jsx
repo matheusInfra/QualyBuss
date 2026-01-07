@@ -26,6 +26,11 @@ const Movimentacoes = () => {
     const [loading, setLoading] = useState(true);
     const [collaborators, setCollaborators] = useState([]);
 
+    // Pagination State
+    const [page, setPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const ITEMS_PER_PAGE = 5; // Smaller limit for cards
+
     // Create Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCollaboratorId, setSelectedCollaboratorId] = useState('');
@@ -40,8 +45,15 @@ const Movimentacoes = () => {
 
     useEffect(() => {
         loadMovements();
-        loadCollaborators();
+    }, [activeTab, page]);
+
+    useEffect(() => {
+        setPage(1);
     }, [activeTab]);
+
+    useEffect(() => {
+        loadCollaborators();
+    }, []);
 
     const loadCollaborators = async () => {
         const { data } = await collaboratorService.getPaginated({ limit: 1000, status: 'active' });
@@ -51,8 +63,13 @@ const Movimentacoes = () => {
     const loadMovements = async () => {
         setLoading(true);
         try {
-            const data = await movementService.getMovements({ status: activeTab });
+            const { data, count } = await movementService.getMovements({
+                status: activeTab,
+                page: page,
+                limit: ITEMS_PER_PAGE
+            });
             setMovements(data || []);
+            setTotalCount(count || 0);
         } catch (error) {
             console.error(error);
             notify.error('Erro', 'Falha ao carregar movimentações.');
@@ -233,6 +250,31 @@ const Movimentacoes = () => {
                     ))
                 )}
             </div>
+
+            {/* Pagination Controls */}
+            {movements.length > 0 && (
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <p className="text-sm text-slate-500">
+                        Mostrando <span className="font-bold">{(page - 1) * ITEMS_PER_PAGE + 1}</span> a <span className="font-bold">{Math.min(page * ITEMS_PER_PAGE, totalCount)}</span> de <span className="font-bold">{totalCount}</span>
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1}
+                            className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Anterior
+                        </button>
+                        <button
+                            onClick={() => setPage(p => p + 1)}
+                            disabled={page * ITEMS_PER_PAGE >= totalCount}
+                            className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Próxima
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* CREATE MODAL */}
             {isModalOpen && (
