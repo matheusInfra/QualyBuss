@@ -1,7 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../services/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Configuracoes = () => {
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('GERAL');
+
+    // AI Settings State
+    const [systemInstruction, setSystemInstruction] = useState('');
+    const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState('');
+
+    useEffect(() => {
+        if (activeTab === 'IA' && user) {
+            loadAISettings();
+        }
+    }, [activeTab, user]);
+
+    const loadAISettings = async () => {
+        setIsLoadingSettings(true);
+        try {
+            const { data, error } = await supabase
+                .from('ai_settings')
+                .select('system_instruction')
+                .eq('user_id', user.id)
+                .single();
+
+            if (data) {
+                setSystemInstruction(data.system_instruction || '');
+            } else if (!error && !data) {
+                // No settings yet, keep empty or default
+                setSystemInstruction('');
+            }
+        } catch (error) {
+            console.error("Error loading AI settings:", error);
+        } finally {
+            setIsLoadingSettings(false);
+        }
+    };
+
+    const saveAISettings = async () => {
+        setIsSaving(true);
+        setSaveMessage('');
+        try {
+            const { error } = await supabase
+                .from('ai_settings')
+                .upsert({
+                    user_id: user.id,
+                    system_instruction: systemInstruction,
+                    updated_at: new Date()
+                });
+
+            if (error) throw error;
+            setSaveMessage('Configurações salvas com sucesso!');
+            setTimeout(() => setSaveMessage(''), 3000);
+        } catch (error) {
+            console.error("Error saving AI settings:", error);
+            setSaveMessage('Erro ao salvar. Tente novamente.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const TABS = [
         { id: 'EMPRESAS', label: 'Empresas', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', desc: 'Cadastro de Lojas e Filiais', color: 'blue' },
@@ -121,24 +181,84 @@ const Configuracoes = () => {
                     </div>
                 )}
 
-                {/* 3. IA CONTENT */}
+                {/* 3. IA CONTENT (UPDATED) */}
                 {activeTab === 'IA' && (
-                    <div className="p-8">
-                        <div className="flex flex-col items-center justify-center text-center py-20 px-4">
-                            <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                                <svg className="w-12 h-12 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    <div className="p-8 space-y-6">
+                        <div className="pb-6 border-b border-slate-100">
+                            <h2 className="text-2xl font-bold text-slate-800">QualyBot AI Studio</h2>
+                            <p className="text-slate-500">Personalize o comportamento e o conhecimento do seu assistente.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                            {/* Left Column: Form */}
+                            <div className="lg:col-span-2 space-y-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Instrução do Sistema (System Prompt)</label>
+                                    <p className="text-xs text-slate-500 mb-3">
+                                        Defina como a IA deve se comportar. Ex: "Você é um especialista em logística da QualyBuss. Responda de forma técnica e concisa."
+                                    </p>
+                                    <textarea
+                                        value={systemInstruction}
+                                        onChange={(e) => setSystemInstruction(e.target.value)}
+                                        className="w-full h-48 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none text-slate-700"
+                                        placeholder="Digite aqui as instruções..."
+                                        disabled={isLoadingSettings}
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                                    <div className="text-sm">
+                                        {saveMessage && (
+                                            <span className={`font-bold ${saveMessage.includes('Erro') ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                {saveMessage}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={saveAISettings}
+                                        disabled={isSaving}
+                                        className={`
+                                            px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 
+                                            hover:bg-indigo-700 transition-all flex items-center gap-2
+                                            ${isSaving ? 'opacity-70 cursor-wait' : ''}
+                                        `}
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Salvando...
+                                            </>
+                                        ) : (
+                                            'Salvar Alterações'
+                                        )}
+                                    </button>
+                                </div>
                             </div>
-                            <h2 className="text-3xl font-bold text-slate-800 mb-2">QualyBot AI Studio</h2>
-                            <p className="text-slate-500 max-w-md mx-auto">
-                                Em breve você poderá configurar a personalidade, base de conhecimento e permissões da nossa IA generativa.
-                            </p>
-                            <div className="mt-8 flex gap-4">
-                                <button className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
-                                    Entrar na Lista de Espera
-                                </button>
-                                <button className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all">
-                                    Ler Documentação
-                                </button>
+
+                            {/* Right Column: Tips */}
+                            <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 h-fit">
+                                <h3 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Dicas de Configuração
+                                </h3>
+                                <ul className="space-y-3 text-sm text-indigo-800">
+                                    <li className="flex gap-2">
+                                        <span className="font-bold text-indigo-500">•</span>
+                                        Seja específico sobre o tom de voz (Ex: Formal, Amigável).
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <span className="font-bold text-indigo-500">•</span>
+                                        Defina o escopo. Diga o que a IA NÃO deve fazer.
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <span className="font-bold text-indigo-500">•</span>
+                                        Você pode colar dados importantes da empresa para ela usar como referência.
+                                    </li>
+                                </ul>
                             </div>
                         </div>
                     </div>
