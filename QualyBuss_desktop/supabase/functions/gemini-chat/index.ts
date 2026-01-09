@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     // 4. Chama o Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
     // Usando modelo flash que é rápido e eficiente
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent(message);
     const response = await result.response;
