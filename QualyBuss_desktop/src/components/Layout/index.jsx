@@ -39,7 +39,7 @@ const Layout = () => {
                     <Outlet />
                 </div>
 
-                {/* <AIChatWidget /> */}
+                <AIChatWidget />
             </main>
         </div>
     );
