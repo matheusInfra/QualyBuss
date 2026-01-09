@@ -158,7 +158,8 @@ const AIChatWidget = () => {
             await chatService.saveMessage(currentSessionId, 'user', finalContent);
 
             // 3. Call AI
-            const responseText = await sendMessageToAI(finalContent);
+            // Pass the selectedFile object if it exists
+            const responseText = await sendMessageToAI(finalContent, selectedFile);
 
             // 4. Save Bot Message
             await chatService.saveMessage(currentSessionId, 'bot', responseText);
@@ -173,10 +174,30 @@ const AIChatWidget = () => {
 
         } catch (error) {
             console.error("Chat error:", error);
+
+            let errorMessage = 'Erro ao conectar. Tente novamente mais tarde.';
+
+            // Check for quota/429 errors
+            if (error.message && (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('limit'))) {
+                errorMessage = (
+                    <span>
+                        Limite de uso do modelo excedido. <br />
+                        <a href="/configuracoes?tab=IA" className="underline font-bold" onClick={(e) => {
+                            e.preventDefault();
+                            // Redirect logic if needed, or just tell user
+                            window.location.href = '/configuracoes'; // Simplest force redirect or just alert
+                        }}>
+                            Troque o modelo nas configurações
+                        </a>
+                        {' '}para o Gemini 1.5 Flash.
+                    </span>
+                );
+            }
+
             const errorMsg = {
                 id: Date.now() + 1,
                 type: 'bot',
-                text: 'Erro ao conectar. Tente novamente mais tarde.'
+                text: errorMessage
             };
             setMessages(prev => [...prev, errorMsg]);
         } finally {

@@ -8,6 +8,7 @@ const Configuracoes = () => {
 
     // AI Settings State
     const [systemInstruction, setSystemInstruction] = useState('');
+    const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash'); // Default fallback
     const [isLoadingSettings, setIsLoadingSettings] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
@@ -23,14 +24,15 @@ const Configuracoes = () => {
         try {
             const { data, error } = await supabase
                 .from('ai_settings')
-                .select('system_instruction')
+                .select('system_instruction, model')
                 .eq('user_id', user.id)
                 .single();
 
             if (data) {
                 setSystemInstruction(data.system_instruction || '');
+                setSelectedModel(data.model || 'gemini-1.5-flash');
             } else if (!error && !data) {
-                // No settings yet, keep empty or default
+                // No settings yet
                 setSystemInstruction('');
             }
         } catch (error) {
@@ -49,6 +51,7 @@ const Configuracoes = () => {
                 .upsert({
                     user_id: user.id,
                     system_instruction: systemInstruction,
+                    model: selectedModel,
                     updated_at: new Date()
                 });
 
@@ -193,6 +196,26 @@ const Configuracoes = () => {
 
                             {/* Left Column: Form */}
                             <div className="lg:col-span-2 space-y-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Modelo de Inteligência</label>
+                                    <p className="text-xs text-slate-500 mb-3">
+                                        Escolha o modelo que melhor se adapta às suas necessidades de velocidade e complexidade.
+                                    </p>
+                                    <select
+                                        value={selectedModel}
+                                        onChange={(e) => setSelectedModel(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                                        disabled={isLoadingSettings}
+                                    >
+                                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Rápido & Padrão)</option>
+                                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Mais Inteligente)</option>
+                                        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental)</option>
+                                        {/* User requested specific strings */}
+                                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Nativo)</option>
+                                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Avançado)</option>
+                                    </select>
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Instrução do Sistema (System Prompt)</label>
                                     <p className="text-xs text-slate-500 mb-3">
