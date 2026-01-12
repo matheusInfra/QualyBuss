@@ -8,7 +8,7 @@ const Configuracoes = () => {
 
     // AI Settings State
     const [systemInstruction, setSystemInstruction] = useState('');
-    const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash'); // Default fallback
+    // const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash'); // REMOVIDO: O modelo agora é gerenciado pelo backend
     const [isLoadingSettings, setIsLoadingSettings] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
@@ -22,15 +22,15 @@ const Configuracoes = () => {
     const loadAISettings = async () => {
         setIsLoadingSettings(true);
         try {
+            // Removemos 'model' da query, pois não precisamos mais carregar/salvar essa preferência do usuário
             const { data, error } = await supabase
                 .from('ai_settings')
-                .select('system_instruction, model')
+                .select('system_instruction') 
                 .eq('user_id', user.id)
                 .single();
 
             if (data) {
                 setSystemInstruction(data.system_instruction || '');
-                setSelectedModel(data.model || 'gemini-1.5-flash');
             } else if (!error && !data) {
                 // No settings yet
                 setSystemInstruction('');
@@ -51,7 +51,7 @@ const Configuracoes = () => {
                 .upsert({
                     user_id: user.id,
                     system_instruction: systemInstruction,
-                    model: selectedModel,
+                    // model: selectedModel, // REMOVIDO: Não salvamos mais o modelo
                     updated_at: new Date()
                 });
 
@@ -184,7 +184,7 @@ const Configuracoes = () => {
                     </div>
                 )}
 
-                {/* 3. IA CONTENT (UPDATED) */}
+                {/* 3. IA CONTENT (ATUALIZADO PARA MODELO FIXO) */}
                 {activeTab === 'IA' && (
                     <div className="p-8 space-y-6">
                         <div className="pb-6 border-b border-slate-100">
@@ -196,24 +196,29 @@ const Configuracoes = () => {
 
                             {/* Left Column: Form */}
                             <div className="lg:col-span-2 space-y-6">
+                                {/* NOVO: Exibição Fixa do Modelo Ativo */}
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Modelo de Inteligência</label>
-                                    <p className="text-xs text-slate-500 mb-3">
-                                        Escolha o modelo que melhor se adapta às suas necessidades de velocidade e complexidade.
+                                    <div className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
+                                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-slate-800 text-sm">Gemini 2.5 Flash-Lite</h3>
+                                                <p className="text-xs text-slate-500">Modelo de alta performance (Gerenciado pelo Sistema)</p>
+                                            </div>
+                                        </div>
+                                        <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                                            ATIVO
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-2 ml-1">
+                                        * Este modelo foi definido como padrão para garantir a melhor velocidade e custo-benefício.
                                     </p>
-                                    <select
-                                        value={selectedModel}
-                                        onChange={(e) => setSelectedModel(e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-                                        disabled={isLoadingSettings}
-                                    >
-                                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Rápido & Padrão)</option>
-                                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Mais Inteligente)</option>
-                                        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental)</option>
-                                        {/* User requested specific strings */}
-                                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Nativo)</option>
-                                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Avançado)</option>
-                                    </select>
                                 </div>
 
                                 <div>
@@ -224,7 +229,7 @@ const Configuracoes = () => {
                                     <textarea
                                         value={systemInstruction}
                                         onChange={(e) => setSystemInstruction(e.target.value)}
-                                        className="w-full h-48 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none text-slate-700"
+                                        className="w-full h-48 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none text-slate-700 placeholder:text-slate-400"
                                         placeholder="Digite aqui as instruções..."
                                         disabled={isLoadingSettings}
                                     />

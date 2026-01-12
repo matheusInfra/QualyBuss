@@ -2,47 +2,32 @@ import { supabase } from './supabase';
 
 const GEMINI_CHAT_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-chat`;
 
-/**
- * Converts a File object to a Base64 string.
- * @param {File} file 
- * @returns {Promise<string>} Base64 string
- */
 const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        reader.onload = () => {
-            // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
-            const base64String = reader.result.split(',')[1];
-            resolve(base64String);
-        };
+        reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.onerror = error => reject(error);
     });
 };
 
 /**
- * Sends a message (and optional file) to the AI service.
- * @param {string} message - The user's text message.
- * @param {File} [file] - Optional file to attach.
- * @returns {Promise<string>} The AI's response text.
+ * Envia mensagem e recebe resposta via Stream.
+ * @param {string} message 
+ * @param {File} file 
+ * @param {function} onStreamUpdate - Função chamada a cada pedaço de texto recebido (chunk)
+ * @returns {Promise<string>} O texto completo final.
  */
-export const sendMessageToAI = async (message, file = null) => {
+export const sendMessageToAI = async (message, file = null, onStreamUpdate = () => {}) => {
     try {
         const { data: { session } } = await supabase.auth.getSession();
 
         let payload = { message };
-
         if (file) {
-            try {
-                const base64Data = await fileToBase64(file);
-                payload.file = {
-                    data: base64Data,
-                    mimeType: file.type
-                };
-            } catch (fileError) {
-                console.error("Error converting file:", fileError);
-                throw new Error("Failed to process file.");
-            }
+            payload.file = {
+                data: await fileToBase64(file),
+                mimeType: file.type
+            };
         }
 
         const response = await fetch(GEMINI_CHAT_FUNCTION_URL, {
@@ -59,8 +44,22 @@ export const sendMessageToAI = async (message, file = null) => {
             throw new Error(errorData.error || 'Erro ao comunicar com a IA');
         }
 
-        const data = await response.json();
-        return data.response;
+        // Leitura do Stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            fullText += chunk;
+            onStreamUpdate(chunk); // Atualiza a UI
+        }
+
+        return fullText;
+
     } catch (error) {
         console.error('AI Service Error:', error);
         throw error;

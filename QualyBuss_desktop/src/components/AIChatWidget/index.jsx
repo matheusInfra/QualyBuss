@@ -23,8 +23,8 @@ const AIChatWidget = () => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Session state
-    const [sessionId, setSessionId] = useState(null); // Current DB session ID
-    const [messages, setMessages] = useState([]); // Array of {id, role, text}
+    const [sessionId, setSessionId] = useState(null); 
+    const [messages, setMessages] = useState([]); 
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -34,7 +34,7 @@ const AIChatWidget = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [history, setHistory] = useState([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-    const [sessionToDelete, setSessionToDelete] = useState(null); // For confirmation modal
+    const [sessionToDelete, setSessionToDelete] = useState(null);
 
     const messagesEndRef = useRef(null);
 
@@ -72,7 +72,7 @@ const AIChatWidget = () => {
 
     const startNewChat = () => {
         setSessionId(null);
-        setMessages([]); // Clear messages to show Welcome Screen
+        setMessages([]); 
         setInput('');
     };
 
@@ -86,14 +86,13 @@ const AIChatWidget = () => {
             }));
             setMessages(formattedMsgs);
             setSessionId(existingSessionId);
-            // On mobile, maybe auto-close sidebar here?
         } catch (error) {
             console.error("Error loading session:", error);
         }
     };
 
     const handleDeleteSession = async (e, id) => {
-        e.stopPropagation(); // Prevent loading the session when clicking delete
+        e.stopPropagation();
         setSessionToDelete(id);
     };
 
@@ -101,11 +100,7 @@ const AIChatWidget = () => {
         if (!sessionToDelete) return;
         try {
             await chatService.deleteSession(sessionToDelete);
-
-            // Update UI
             setHistory(prev => prev.filter(s => s.id !== sessionToDelete));
-
-            // If deleting current session, clear it
             if (sessionId === sessionToDelete) {
                 startNewChat();
             }
@@ -122,6 +117,7 @@ const AIChatWidget = () => {
         }
     };
 
+    // --- LÓGICA DE ENVIO ATUALIZADA (STREAMING) ---
     const handleSend = async (e, overrideInput = null) => {
         e?.preventDefault();
         const textToSend = overrideInput || input;
@@ -133,83 +129,76 @@ const AIChatWidget = () => {
             finalContent = `[Arquivo: ${selectedFile.name}] ${textToSend}`;
         }
 
-        // Optimistic Update
+        // 1. Adiciona mensagem do usuário na tela
         const tempUserMsg = { id: Date.now(), type: 'user', text: finalContent };
         setMessages(prev => [...prev, tempUserMsg]);
         setInput('');
         setSelectedFile(null);
         setIsTyping(true);
 
+        // ID temporário para a mensagem do Bot que vai ser preenchida
+        const botMsgId = Date.now() + 1;
+        
+        // Cria o placeholder da mensagem do bot vazia
+        setMessages(prev => [...prev, { id: botMsgId, type: 'bot', text: '' }]);
+
         try {
             let currentSessionId = sessionId;
 
-            // 1. Create Session if not exists
+            // Cria sessão se não existir
             if (!currentSessionId) {
-                // Generate a title from the first few words
                 const title = finalContent.slice(0, 30) + (finalContent.length > 30 ? '...' : '');
                 const session = await chatService.createSession(title, user.id);
                 currentSessionId = session.id;
                 setSessionId(currentSessionId);
-                // Refresh history to show new session
                 loadHistory();
             }
 
-            // 2. Save User Message
+            // Salva mensagem do usuário no DB
             await chatService.saveMessage(currentSessionId, 'user', finalContent);
 
-            // 3. Call AI
-            // Pass the selectedFile object if it exists
-            const responseText = await sendMessageToAI(finalContent, selectedFile);
+            // Variável para acumular a resposta completa
+            let accumulatedResponse = "";
 
-            // 4. Save Bot Message
-            await chatService.saveMessage(currentSessionId, 'bot', responseText);
+            // --- CHAMADA COM STREAMING ---
+            await sendMessageToAI(finalContent, selectedFile, (chunk) => {
+                accumulatedResponse += chunk;
+                
+                // Atualiza a última mensagem (do bot) em tempo real
+                setMessages(prev => prev.map(msg => 
+                    msg.id === botMsgId 
+                        ? { ...msg, text: accumulatedResponse }
+                        : msg
+                ));
+            });
 
-            // 5. Update UI
-            const botMsg = {
-                id: Date.now() + 1,
-                type: 'bot',
-                text: responseText
-            };
-            setMessages(prev => [...prev, botMsg]);
+            // Salva a resposta completa do Bot no DB após terminar
+            await chatService.saveMessage(currentSessionId, 'bot', accumulatedResponse);
 
         } catch (error) {
             console.error("Chat error:", error);
-
-            let errorMessage = 'Erro ao conectar. Tente novamente mais tarde.';
-
-            // Check for quota/429 errors
-            if (error.message && (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('limit'))) {
-                errorMessage = (
-                    <span>
-                        Limite de uso do modelo excedido. <br />
-                        <a href="/configuracoes?tab=IA" className="underline font-bold" onClick={(e) => {
-                            e.preventDefault();
-                            // Redirect logic if needed, or just tell user
-                            window.location.href = '/configuracoes'; // Simplest force redirect or just alert
-                        }}>
-                            Troque o modelo nas configurações
-                        </a>
-                        {' '}para o Gemini 1.5 Flash.
-                    </span>
-                );
+            
+            let errorMessage = 'Erro ao conectar. Tente novamente.';
+            if (error.message && error.message.includes('Quota')) {
+                errorMessage = "Limite de cotas excedido.";
             }
 
-            const errorMsg = {
-                id: Date.now() + 1,
-                type: 'bot',
-                text: errorMessage
-            };
-            setMessages(prev => [...prev, errorMsg]);
+            // Atualiza a mensagem do bot para mostrar o erro
+            setMessages(prev => prev.map(msg => 
+                msg.id === botMsgId 
+                    ? { ...msg, text: errorMessage }
+                    : msg
+            ));
         } finally {
             setIsTyping(false);
         }
     };
+    // ------------------------------------------------
 
     const filteredHistory = history.filter(item =>
         (item.title || 'Nova Conversa').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Welcome Screen Component
     const WelcomeScreen = () => (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/30">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
@@ -252,7 +241,6 @@ const AIChatWidget = () => {
 
     return (
         <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end font-sans">
-
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -351,7 +339,6 @@ const AIChatWidget = () => {
 
                             {/* MAIN CHAT AREA */}
                             <div className="flex-1 flex flex-col bg-white relative">
-
                                 <div className="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-white/90 backdrop-blur-sm flex-shrink-0 z-10 sticky top-0">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-md">
@@ -377,7 +364,6 @@ const AIChatWidget = () => {
                                     </div>
                                 </div>
 
-                                {/* Dynamic Content: Welcome OR Messages */}
                                 {messages.length === 0 ? (
                                     <WelcomeScreen />
                                 ) : (
@@ -389,35 +375,20 @@ const AIChatWidget = () => {
                                                     ${msg.type === 'user' ? 'items-end' : 'items-start'}
                                                 `}>
                                                     <div className={`
-                                                        p-4 rounded-2xl text-[15px] leading-relaxed shadow-sm
+                                                        p-4 rounded-2xl text-[15px] leading-relaxed shadow-sm whitespace-pre-wrap
                                                         ${msg.type === 'user'
                                                             ? 'bg-blue-600 text-white rounded-br-none'
                                                             : 'bg-white text-slate-700 border border-slate-200 rounded-bl-none'}
                                                     `}>
                                                         {msg.text}
                                                     </div>
-                                                    <span className="text-[10px] text-slate-400 mt-1 px-1">
-                                                        {/* Just a simple time placeholder or real timestamp could go here */}
-                                                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
                                                 </div>
                                             </div>
                                         ))}
-
-                                        {isTyping && (
-                                            <div className="flex justify-start">
-                                                <div className="bg-white p-3 rounded-2xl rounded-bl-none border border-slate-200 shadow-sm flex items-center gap-1.5">
-                                                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
-                                                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-75"></span>
-                                                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-150"></span>
-                                                </div>
-                                            </div>
-                                        )}
                                         <div ref={messagesEndRef} />
                                     </div>
                                 )}
 
-                                {/* Input Footer */}
                                 <div className="p-4 bg-white border-t border-slate-100">
                                     {selectedFile && (
                                         <div className="mb-2 flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs w-fit">
@@ -454,7 +425,7 @@ const AIChatWidget = () => {
                                                     handleSend(e);
                                                 }
                                             }}
-                                            placeholder="Digite sua mensagem munha joia..."
+                                            placeholder="Digite sua mensagem..."
                                             className="w-full bg-transparent border-none focus:ring-0 text-slate-700 placeholder:text-slate-400 resize-none max-h-32 min-h-[44px] py-2.5 px-3 text-sm scrollbar-hide"
                                             rows="1"
                                         />
@@ -471,7 +442,6 @@ const AIChatWidget = () => {
                                     </p>
                                 </div>
 
-                                {/* Confirmation Modal */}
                                 <AnimatePresence>
                                     {sessionToDelete && (
                                         <motion.div
