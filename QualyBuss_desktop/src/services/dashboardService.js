@@ -198,25 +198,41 @@ export const dashboardService = {
     subscribeToChanges(onUpdate) {
         const channel = supabase.channel('dashboard-realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'occurrences' }, async () => {
-                const data = await this.fetchOccurrenceMetrics();
-                onUpdate(data);
-                // Also update recent activity
-                const activity = await this.getRecentActivity();
-                onUpdate({ recentActivity: activity }, true); // special flag if needed
+                try {
+                    const data = await this.fetchOccurrenceMetrics();
+                    onUpdate(data);
+                    // Also update recent activity
+                    const activity = await this.getRecentActivity();
+                    onUpdate({ recentActivity: activity }, true); // special flag if needed
+                } catch (err) {
+                    console.error('Error handling occurrence update:', err);
+                }
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'collaborators' }, async () => {
-                const data = await this.fetchCollaboratorMetrics();
-                onUpdate(data);
+                try {
+                    const data = await this.fetchCollaboratorMetrics();
+                    onUpdate(data);
+                } catch (err) {
+                    console.error('Error handling collaborator update:', err);
+                }
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, async () => {
-                const data = await this.fetchAbsenceMetrics();
-                onUpdate(data);
+                try {
+                    const data = await this.fetchAbsenceMetrics();
+                    onUpdate(data);
+                } catch (err) {
+                    console.error('Error handling leave request update:', err);
+                }
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'job_movements' }, async () => {
-                const data = await this.fetchMovementMetrics();
-                onUpdate(data);
-                const activity = await this.getRecentActivity();
-                onUpdate({ recentActivity: activity }, true);
+                try {
+                    const data = await this.fetchMovementMetrics();
+                    onUpdate(data);
+                    const activity = await this.getRecentActivity();
+                    onUpdate({ recentActivity: activity }, true);
+                } catch (err) {
+                    console.error('Error handling job movement update:', err);
+                }
             })
             .subscribe();
 

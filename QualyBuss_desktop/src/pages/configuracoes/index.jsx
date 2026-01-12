@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { 
-    Cog6ToothIcon, 
-    CpuChipIcon, 
-    CheckCircleIcon, 
+import {
+    Cog6ToothIcon,
+    CpuChipIcon,
+    CheckCircleIcon,
     ArrowPathIcon,
     DocumentTextIcon,
     TrashIcon,
@@ -87,7 +87,7 @@ const Configuracoes = () => {
                 .eq('user_id', user.id);
 
             if (error) throw error;
-            
+
             setAiSettings(prev => ({ ...prev, knowledge_file_path: null }));
             setFeedback({ type: 'success', message: 'Documento removido com sucesso.' });
             setTimeout(() => setFeedback({ type: '', message: '' }), 3000);
@@ -112,7 +112,7 @@ const Configuracoes = () => {
                 const fileExt = selectedFile.name.split('.').pop();
                 // Nome único para evitar cache/conflito
                 const fileName = `${user.id}_regras_${Date.now()}.${fileExt}`;
-                
+
                 const { error: uploadError } = await supabase.storage
                     .from('ai-knowledge')
                     .upload(fileName, selectedFile);
@@ -121,13 +121,8 @@ const Configuracoes = () => {
                 finalFilePath = fileName;
             }
 
-            // 2. Salvar no Banco
-            const { data: existingData } = await supabase
-                .from('ai_settings')
-                .select('id')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
+            // 2. Salvar no Banco (CORREÇÃO: Usando UPSERT em vez de Select + Insert/Update)
+            // Isso corrige o erro 400 (select id inexistente) e 409 (conflict)
             const payload = {
                 user_id: user.id,
                 system_instruction: aiSettings.system_instruction,
@@ -135,13 +130,11 @@ const Configuracoes = () => {
                 updated_at: new Date()
             };
 
-            if (existingData) {
-                const { error } = await supabase.from('ai_settings').update(payload).eq('user_id', user.id);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase.from('ai_settings').insert([payload]);
-                if (error) throw error;
-            }
+            const { error } = await supabase
+                .from('ai_settings')
+                .upsert(payload, { onConflict: 'user_id' });
+
+            if (error) throw error;
 
             setAiSettings(prev => ({ ...prev, knowledge_file_path: finalFilePath }));
             setSelectedFile(null);
@@ -150,7 +143,9 @@ const Configuracoes = () => {
 
         } catch (error) {
             console.error('Erro ao salvar:', error);
-            setFeedback({ type: 'error', message: 'Erro ao salvar alterações. Tente novamente.' });
+            // Tratamento de erro mais amigável
+            const msg = error.message || 'Erro ao salvar alterações. Tente novamente.';
+            setFeedback({ type: 'error', message: msg });
         } finally {
             setIsSaving(false);
         }
@@ -200,12 +195,11 @@ const Configuracoes = () => {
 
             {/* Área de Conteúdo */}
             <div className="bg-white rounded-3xl shadow-xl border border-slate-100 min-h-[500px] overflow-hidden animate-fade-in-up relative">
-                
+
                 {/* Feedback Geral Flutuante (se houver) */}
                 {feedback.message && (
-                    <div className={`absolute top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold animate-slide-in ${
-                        feedback.type === 'success' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'
-                    }`}>
+                    <div className={`absolute top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold animate-slide-in ${feedback.type === 'success' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'
+                        }`}>
                         {feedback.type === 'success' ? <CheckCircleIcon className="w-5 h-5" /> : null}
                         {feedback.message}
                     </div>
@@ -300,7 +294,7 @@ const Configuracoes = () => {
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            
+
                             {/* COLUNA ESQUERDA: Upload e Regras */}
                             <div className="space-y-6">
                                 <div>
@@ -317,13 +311,13 @@ const Configuracoes = () => {
                                         border-2 border-dashed rounded-xl p-6 transition-all text-center relative
                                         ${selectedFile ? 'border-blue-400 bg-blue-50' : 'border-slate-300 bg-slate-50 hover:bg-white hover:border-blue-400'}
                                     `}>
-                                        <input 
-                                            type="file" 
+                                        <input
+                                            type="file"
                                             accept=".pdf,.txt,.md"
                                             onChange={handleFileChange}
                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                         />
-                                        
+
                                         <div className="flex flex-col items-center justify-center pointer-events-none">
                                             {selectedFile ? (
                                                 <>
@@ -355,7 +349,7 @@ const Configuracoes = () => {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <button 
+                                            <button
                                                 type="button"
                                                 onClick={handleRemoveFile}
                                                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
