@@ -30,10 +30,11 @@ Deno.serve(async (req) => {
 
     const { data: { user } } = await supabaseClient.auth.getUser();
 
-    // 2. Configurações (System Instruction e Modelo)
+    // 2. Configurações (Apenas System Instruction é dinâmica agora)
     let systemInstruction = "Você é um assistente útil para o QualyBuss.";
-    // ALTERAÇÃO AQUI: Usando a versão específica -001 para garantir estabilidade
-    let selectedModel = "gemini-1.5-flash-001"; 
+    
+    // CONFIGURAÇÃO FIXA DO MODELO (Solicitado: Gemini 2.5 Flash-Lite)
+    const selectedModel = "gemini-2.5-flash-lite"; 
 
     if (user) {
       const settingsClient = supabaseServiceKey 
@@ -42,14 +43,12 @@ Deno.serve(async (req) => {
 
       const { data: settings } = await settingsClient
         .from('ai_settings')
-        .select('system_instruction, model')
+        .select('system_instruction') // Removemos 'model' da query pois não usaremos mais
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (settings) {
-        if (settings.system_instruction) systemInstruction = settings.system_instruction;
-        // Se o usuário tiver salvo um modelo antigo no banco, forçamos o update ou fallback se der erro
-        if (settings.model && !settings.model.includes('flash')) selectedModel = settings.model;
+      if (settings && settings.system_instruction) {
+        systemInstruction = settings.system_instruction;
       }
     }
 
@@ -57,7 +56,7 @@ Deno.serve(async (req) => {
     const { message, file } = await req.json();
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Configuração do modelo
+    // Inicializa Modelo
     const model = genAI.getGenerativeModel({ 
         model: selectedModel,
         systemInstruction: systemInstruction
@@ -84,9 +83,9 @@ Deno.serve(async (req) => {
           }
           controller.close();
         } catch (err: any) {
-            console.error("Erro no stream:", err);
-            // Se o modelo falhar (ex: 404), tenta avisar o frontend em vez de quebrar o stream silenciosamente
-            const errorMsg = `\n[Erro no servidor: ${err.message || 'Falha ao gerar resposta'}]`;
+            console.error(`Erro no modelo ${selectedModel}:`, err);
+            // Tratamento de erro amigável no stream
+            const errorMsg = `\n[Erro ao processar com ${selectedModel}. Detalhes: ${err.message || 'Falha desconhecida'}]`;
             controller.enqueue(new TextEncoder().encode(errorMsg));
             controller.close();
         }
@@ -96,8 +95,8 @@ Deno.serve(async (req) => {
     return new Response(stream, {
       headers: { 
         ...corsHeaders, 
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked'
+        'Content-Type': 'text/plain; charset=utf-8', 
+        'Transfer-Encoding': 'chunked' 
       },
     });
 
