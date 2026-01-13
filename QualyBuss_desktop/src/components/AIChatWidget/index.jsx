@@ -14,7 +14,9 @@ import {
     SparklesIcon,
     LightBulbIcon,
     ClockIcon,
-    TrashIcon
+    TrashIcon,
+    ArrowsPointingOutIcon,
+    ArrowsPointingInIcon
 } from '@heroicons/react/24/outline';
 
 const AIChatWidget = () => {
@@ -23,8 +25,8 @@ const AIChatWidget = () => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Session state
-    const [sessionId, setSessionId] = useState(null); 
-    const [messages, setMessages] = useState([]); 
+    const [sessionId, setSessionId] = useState(null);
+    const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -67,12 +69,13 @@ const AIChatWidget = () => {
 
     const toggleChat = () => {
         setIsOpen(!isOpen);
-        if (!isOpen) setIsExpanded(true);
+        // Removed auto-expand behavior
+        // if (!isOpen) setIsExpanded(false); 
     };
 
     const startNewChat = () => {
         setSessionId(null);
-        setMessages([]); 
+        setMessages([]);
         setInput('');
     };
 
@@ -138,7 +141,7 @@ const AIChatWidget = () => {
 
         // ID temporário para a mensagem do Bot que vai ser preenchida
         const botMsgId = Date.now() + 1;
-        
+
         // Cria o placeholder da mensagem do bot vazia
         setMessages(prev => [...prev, { id: botMsgId, type: 'bot', text: '' }]);
 
@@ -163,10 +166,10 @@ const AIChatWidget = () => {
             // --- CHAMADA COM STREAMING ---
             await sendMessageToAI(finalContent, selectedFile, (chunk) => {
                 accumulatedResponse += chunk;
-                
+
                 // Atualiza a última mensagem (do bot) em tempo real
-                setMessages(prev => prev.map(msg => 
-                    msg.id === botMsgId 
+                setMessages(prev => prev.map(msg =>
+                    msg.id === botMsgId
                         ? { ...msg, text: accumulatedResponse }
                         : msg
                 ));
@@ -177,15 +180,15 @@ const AIChatWidget = () => {
 
         } catch (error) {
             console.error("Chat error:", error);
-            
+
             let errorMessage = 'Erro ao conectar. Tente novamente.';
             if (error.message && error.message.includes('Quota')) {
                 errorMessage = "Limite de cotas excedido.";
             }
 
             // Atualiza a mensagem do bot para mostrar o erro
-            setMessages(prev => prev.map(msg => 
-                msg.id === botMsgId 
+            setMessages(prev => prev.map(msg =>
+                msg.id === botMsgId
                     ? { ...msg, text: errorMessage }
                     : msg
             ));
@@ -250,7 +253,10 @@ const AIChatWidget = () => {
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         className={`
                             bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col origin-bottom-right
-                            ${isExpanded ? 'fixed bottom-24 right-6 w-[90vw] h-[80vh] max-w-5xl max-h-[800px]' : 'mb-4 w-96 h-[500px]'}
+                            ${isExpanded
+                                ? 'fixed bottom-4 right-4 w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] max-w-7xl max-h-[900px] z-[60]'
+                                : 'mb-4 w-96 h-[500px]'
+                            }
                         `}
                     >
                         <div className="flex h-full">
@@ -353,10 +359,21 @@ const AIChatWidget = () => {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => setIsExpanded(!isExpanded)}
+                                            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 transition-colors"
+                                            title={isExpanded ? "Restaurar" : "Expandir"}
+                                        >
+                                            {isExpanded ? (
+                                                <ArrowsPointingInIcon className="w-5 h-5" />
+                                            ) : (
+                                                <ArrowsPointingOutIcon className="w-5 h-5" />
+                                            )}
+                                        </button>
                                         <button
                                             onClick={() => setIsOpen(false)}
-                                            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                                            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-red-500 transition-colors"
                                             title="Fechar Chat"
                                         >
                                             <XMarkIcon className="w-6 h-6" />

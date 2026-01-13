@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import GlobalErrorBoundary from './components/ErrorBoundary';
+// Importações de I18n e Contextos
+import './lib/i18n';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 
 // Global Error Handler for Extension/Async issues
@@ -17,7 +20,9 @@ window.addEventListener('unhandledrejection', (event) => {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <GlobalErrorBoundary>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </GlobalErrorBoundary>
   </StrictMode>,
 )

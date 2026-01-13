@@ -177,7 +177,24 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
             return;
         }
 
-        onSave(formData, avatarFile);
+        // Vacation Logic for New Hires
+        let finalData = { ...formData };
+        if (!collaborator && formData.isNewHire) {
+            const admission = formData.admission_date ? new Date(formData.admission_date) : new Date();
+            const vestingEnd = new Date(admission);
+            vestingEnd.setFullYear(vestingEnd.getFullYear() + 1);
+
+            finalData.vacation_balance = 30;
+            finalData.vacation_vesting_end = vestingEnd.toISOString().split('T')[0];
+        } else if (!collaborator) {
+            // If not new hire (legacy), balance starts at 0
+            finalData.vacation_balance = 0;
+            finalData.vacation_vesting_end = null;
+        }
+        // Remove auxiliary field before sending
+        delete finalData.isNewHire;
+
+        onSave(finalData, avatarFile);
     };
 
     if (!isOpen) return null;
@@ -426,16 +443,40 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                         <option value="Remoto">Remoto</option>
                                                     </select>
                                                 </div>
-                                                <div className="md:col-span-2">
-                                                    <label className={LABEL_CLASS}>Salário Base</label>
-                                                    <div className="relative">
-                                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium">R$</div>
-                                                        <input type="number" name="salary" value={formData.salary || ''} onChange={handleChange} className={`${INPUT_CLASS()} pl-10 font-medium`} placeholder="0,00" />
+                                                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div>
+                                                        <label className={LABEL_CLASS}>Salário Base</label>
+                                                        <div className="relative">
+                                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium">R$</div>
+                                                            <input type="number" name="salary" value={formData.salary || ''} onChange={handleChange} className={`${INPUT_CLASS()} pl-10 font-medium`} placeholder="0,00" />
+                                                        </div>
                                                     </div>
+
+                                                    {/* New Hire Logic - Only for New Registrations */}
+                                                    {!collaborator && (
+                                                        <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 flex flex-col justify-center">
+                                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                                <div className="relative flex items-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={formData.isNewHire || false}
+                                                                        onChange={(e) => setFormData(prev => ({ ...prev, isNewHire: e.target.checked }))}
+                                                                        className="w-5 h-5 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-sm font-bold text-slate-700">Recém-Contratado?</span>
+                                                                    <p className="text-[10px] text-slate-500 leading-tight">
+                                                                        Atribui 30 dias de férias com carência de 1 ano.
+                                                                    </p>
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {/* Active Status Card */}
-                                                <div className="md:col-span-2 bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center justify-between">
+                                                <div className="md:col-span-2 bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center justify-between mt-2">
                                                     <div>
                                                         <h4 className="text-blue-900 font-bold text-sm">Acesso ao Sistema</h4>
                                                         <p className="text-blue-700 text-xs mt-1">Habilite ou desabilite o login deste colaborador.</p>
@@ -532,9 +573,9 @@ const HistoryTab = ({ collaboratorId }) => {
             {history.map(item => (
                 <div key={item.id} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex gap-4">
                     <div className={`w-1 rounded-full ${item.type === 'SUSPENSAO' ? 'bg-red-500' :
-                            item.type === 'MERITO' ? 'bg-green-500' :
-                                item.type === 'ADVERTENCIA_ESCRITA' ? 'bg-orange-500' :
-                                    'bg-blue-400'
+                        item.type === 'MERITO' ? 'bg-green-500' :
+                            item.type === 'ADVERTENCIA_ESCRITA' ? 'bg-orange-500' :
+                                'bg-blue-400'
                         }`} />
                     <div className="flex-1">
                         <div className="flex justify-between items-start">

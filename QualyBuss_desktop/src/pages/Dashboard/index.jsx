@@ -69,6 +69,13 @@ const Dashboard = () => {
             trend: `Tempo Médio: ${stats?.avgTenureYears || 0} anos`
         },
         {
+            title: 'Turnover (Rotatividade)',
+            value: `${stats?.turnoverRate || 0}%`,
+            icon: ArrowTrendingUpIcon, // Reusing trending up or maybe ArrowPath would be better if imported
+            color: 'red',
+            trend: 'Taxa Trimestral'
+        },
+        {
             title: 'Folha Estimada',
             value: formatCurrency(stats?.payroll || 0),
             icon: CurrencyDollarIcon,
@@ -79,64 +86,62 @@ const Dashboard = () => {
             title: 'Ausências Hoje',
             value: stats?.activeAbsences || 0,
             icon: UserMinusIcon,
-            color: 'red',
+            color: 'orange',
             trend: 'Atestados / Falta'
-        },
-        {
-            title: 'Aniversariantes (Mês)',
-            value: stats?.birthdays?.length || 0,
-            icon: CakeIcon,
-            color: 'pink',
-            trend: 'Celebrar! 🎉'
         },
         {
             title: 'Férias Ativas',
             value: stats?.activeVacations || 0,
             icon: SunIcon,
-            color: 'orange',
-            trend: `${stats?.upcomingVacations || 0} programadas próx. semana`
+            color: 'yellow',
+            trend: `${stats?.upcomingVacations || 0} programadas`
         },
         {
-            title: 'Movimentações Pendentes',
+            title: 'Movimentações',
             value: stats?.pendingMovements || 0,
             icon: BriefcaseIcon,
             color: 'purple',
-            trend: 'Aguardando aprovação'
+            trend: 'Pendentes de Aprovação'
+        },
+        {
+            title: 'Aniversariantes',
+            value: stats?.birthdays?.length || 0,
+            icon: CakeIcon,
+            color: 'pink',
+            trend: 'Neste Mês 🎉'
         }
     ];
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-fade-in p-2 pb-20">
+        <div className="max-w-7xl mx-auto space-y-8 animate-fade-in p-2 pb-20 font-sans">
             {/* Header */}
             <div className="flex flex-col md:flex-row items-end justify-between gap-4 border-b border-slate-200 pb-6">
                 <div>
-                    <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight">Dashboard</h1>
-                    <p className="text-slate-500 mt-2 text-lg">Visão geral dos indicadores de RH e performance.</p>
+                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Dashboard</h1>
+                    <p className="text-slate-500 mt-2 text-lg font-light">Visão geral dos indicadores de RH e performance.</p>
                 </div>
-                <div className="text-sm text-slate-400 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
+                <div className="text-sm text-slate-500 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm font-medium">
                     Última atualização: {new Date().toLocaleTimeString()}
                 </div>
             </div>
 
             {/* KPI Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {cards.map((card, idx) => {
                     const Icon = card.icon;
                     return (
-                        <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow group flex flex-col justify-between h-full">
+                        <div key={idx} className="bg-white p-5 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between h-full">
                             <div>
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className={`p-2.5 rounded-xl bg-${card.color}-50 text-${card.color}-600 group-hover:scale-110 transition-transform`}>
-                                        <Icon className="w-5 h-5" />
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={`p-3 rounded-2xl bg-${card.color}-50 text-${card.color}-600 group-hover:scale-110 transition-transform duration-300`}>
+                                        <Icon className="w-6 h-6" />
                                     </div>
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full bg-${card.color}-50 text-${card.color}-600`}>
+                                        {card.trend}
+                                    </span>
                                 </div>
-                                <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider">{card.title}</h3>
-                                <p className="text-2xl font-extrabold text-slate-800 mt-1 truncate" title={String(card.value)}>{card.value}</p>
-                            </div>
-                            <div className="mt-4 pt-3 border-t border-slate-50">
-                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full bg-${card.color}-50 text-${card.color}-600 inline-block`}>
-                                    {card.trend}
-                                </span>
+                                <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">{card.title}</h3>
+                                <p className="text-3xl font-black text-slate-800 tracking-tight truncate" title={String(card.value)}>{card.value}</p>
                             </div>
                         </div>
                     );
