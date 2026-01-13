@@ -2,49 +2,42 @@ import React, { useState, useEffect } from 'react';
 import CollaboratorCard from '../../components/CollaboratorCard';
 import CollaboratorDrawer from '../../components/CollaboratorDrawer';
 import { collaboratorService } from '../../services/collaboratorService';
+import { useCollaborators, useCollaboratorMutations } from '../../hooks/useCollaborators';
 import { useNotification } from '../../context/NotificationContext';
 
 const Colaboradores = () => {
     const { notify } = useNotification();
-    const [collaborators, setCollaborators] = useState([]);
+
+    // State definitions restored
     const [searchTerm, setSearchTerm] = useState('');
-    const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [filterStatus, setFilterStatus] = useState('active');
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedCollab, setSelectedCollab] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
 
-    // New Pagination & Filter States
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [filterStatus, setFilterStatus] = useState('active'); // 'active', 'inactive', 'all'
     const ITEMS_PER_PAGE = 30;
+    const {
+        data: queryData,
+        isLoading: loading,
+        refetch
+    } = useCollaborators({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        status: filterStatus,
+        searchTerm
+    });
 
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const { data, count } = await collaboratorService.getPaginated({
-                page: currentPage,
-                limit: ITEMS_PER_PAGE,
-                status: filterStatus,
-                searchTerm: searchTerm
-            });
-            setCollaborators(data || []);
-            setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
-        } catch (error) {
-            console.error("Error fetching collaborators", error);
-            notify.error("Erro ao carregar", "Não foi possível carregar a lista de colaboradores.");
-        } finally {
-            setLoading(false);
-        }
-    };
+    const collaborators = queryData?.data || [];
+    const totalCount = queryData?.count || 0;
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-    // Refetch when Page, Status or Search changes
+    const { createCollaborator, updateCollaborator, toggleStatus } = useCollaboratorMutations();
+
+    // Refetch when filters change is handled automatically by queryKey dependency in hook
     useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            fetchData();
-        }, 300); // Debounce search
-        return () => clearTimeout(delayDebounceFn);
-    }, [currentPage, filterStatus, searchTerm]);
+        setCurrentPage(1);
+    }, [filterStatus, searchTerm]);
 
     const handleCreateNew = () => {
         setSelectedCollab(null);
@@ -67,14 +60,13 @@ const Colaboradores = () => {
             }
 
             if (selectedCollab) {
-                await collaboratorService.update(selectedCollab.id, dataToSave);
+                await updateCollaborator.mutateAsync({ id: selectedCollab.id, data: dataToSave });
                 notify.success("Atualizado", "Dados do colaborador atualizados com sucesso!");
             } else {
-                await collaboratorService.create(dataToSave);
+                await createCollaborator.mutateAsync(dataToSave);
                 notify.success("Cadastrado", "Novo colaborador registrado com sucesso!");
             }
             setIsDrawerOpen(false);
-            fetchData();
         } catch (error) {
             console.error("Error saving collaborator", error);
             notify.error("Erro ao Salvar", "Ocorreu um problema ao salvar os dados.");

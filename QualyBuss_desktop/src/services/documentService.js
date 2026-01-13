@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { cache } from '../utils/cacheManager';
+
 
 export const documentService = {
     // Upload file and create record
@@ -40,9 +40,6 @@ export const documentService = {
 
             if (dbError) throw dbError;
 
-            // Invalidate cache for this user's documents
-            cache.del(`docs_${collaboratorId}`);
-
             return recordData;
 
         } catch (error) {
@@ -54,10 +51,6 @@ export const documentService = {
     // List documents for a collaborator
     async getByCollaboratorId(collaboratorId) {
         try {
-            const cacheKey = `docs_${collaboratorId}`;
-            const cached = cache.get(cacheKey);
-            if (cached) return cached;
-
             const { data, error } = await supabase
                 .from('collaborator_documents')
                 .select('*')
@@ -66,7 +59,6 @@ export const documentService = {
 
             if (error) throw error;
 
-            cache.set(cacheKey, data, 300); // 5 min cache
             return data;
         } catch (error) {
             console.error('Error getting documents:', error);
@@ -106,10 +98,6 @@ export const documentService = {
                 .eq('id', id);
 
             if (dbError) throw dbError;
-
-            if (doc?.collaborator_id) {
-                cache.del(`docs_${doc.collaborator_id}`);
-            }
 
             return true;
         } catch (error) {

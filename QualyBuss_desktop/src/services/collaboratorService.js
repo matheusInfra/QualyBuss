@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { cache } from '../utils/cacheManager';
 
 export const collaboratorService = {
     // Buscar todos os colaboradores
@@ -22,13 +21,6 @@ export const collaboratorService = {
 
     // Buscar com Paginação e Filtros
     async getPaginated({ page = 1, limit = 30, status = 'active', searchTerm = '' }) {
-        const cacheKey = `collab_list_${page}_${limit}_${status}_${searchTerm}`;
-        const cached = cache.get(cacheKey);
-
-        if (cached) {
-            return cached;
-        }
-
         const from = (page - 1) * limit;
         const to = from + limit - 1;
 
@@ -59,9 +51,7 @@ export const collaboratorService = {
             return { data: [], count: 0 };
         }
 
-        const result = { data, count };
-        cache.set(cacheKey, result, 300); // Cache por 5 minutos
-        return result;
+        return { data, count };
     },
 
     // Verificar duplicidade de CPF
@@ -110,7 +100,7 @@ export const collaboratorService = {
             .single();
 
         if (error) throw error;
-        cache.invalidate('collab_list'); // Limpa cache de listas
+
         return data;
     },
 
@@ -124,7 +114,6 @@ export const collaboratorService = {
             .single();
 
         if (error) throw error;
-        cache.invalidate('collab_list'); // Limpa cache
         return data;
     },
 
@@ -138,7 +127,6 @@ export const collaboratorService = {
             .single();
 
         if (error) throw error;
-        cache.invalidate('collab_list'); // Limpa cache
         return data;
     },
 
