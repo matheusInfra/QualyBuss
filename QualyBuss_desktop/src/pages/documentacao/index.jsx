@@ -399,6 +399,8 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
                                 <option value="Contrato">Contrato</option>
                                 <option value="Documentos Pessoais">Documentos Pessoais</option>
                                 <option value="Holerite">Holerite</option>
+                                <option value="Folha de Ponto">Folha de Ponto</option>
+                                <option value="Comprovante Bancário">Comprovante Bancário</option>
                                 <option value="Currículo">Currículo</option>
                                 <option value="Outros">Outros</option>
                             </select>
@@ -461,6 +463,8 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
                                     <option value="Contrato">Contrato</option>
                                     <option value="Documentos Pessoais">Doc. Pessoais</option>
                                     <option value="Holerite">Holerite</option>
+                                    <option value="Folha de Ponto">Folha de Ponto</option>
+                                    <option value="Comprovante Bancário">Comprovante Bancário</option>
                                     <option value="Currículo">Currículo</option>
                                     <option value="Outros">Outros</option>
                                 </select>

@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 
 export const documentService = {
     // Upload file and create record
-    async uploadDocument(file, collaboratorId, category = 'Outros', occurrenceId = null) {
+    async uploadDocument(file, collaboratorId, category = 'Outros', occurrenceId = null, options = {}) {
         try {
             // 1. Upload to Storage
             const fileExt = file.name.split('.').pop();
@@ -32,7 +32,9 @@ export const documentService = {
                         category: category,
                         size_bytes: file.size,
                         type: file.type,
-                        occurrence_id: occurrenceId // Link to occurrence if provided
+                        occurrence_id: occurrenceId,
+                        competence_month: options?.month || null,
+                        competence_year: options?.year || null
                     }
                 ])
                 .select()

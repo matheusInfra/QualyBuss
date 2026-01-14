@@ -4,6 +4,8 @@ import { collaboratorService } from '../../services/collaboratorService';
 import { useNotification } from '../../context/NotificationContext';
 import { validators } from '../../utils/validators';
 
+import { bankService } from '../../services/bankService';
+
 const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving }) => {
     const { notify } = useNotification();
     const [activeTab, setActiveTab] = useState('pessoal');
@@ -28,7 +30,11 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
         pis: '',
         contract_type: 'CLT',
         work_regime: 'Presencial',
-        salary: ''
+        salary: '',
+        bank_name: '',
+        bank_agency: '',
+        bank_account: '',
+        pix_key: ''
     });
     const [errors, setErrors] = useState({});
     const [avatarFile, setAvatarFile] = useState(null);
@@ -37,6 +43,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
     const [isLoadingCep, setIsLoadingCep] = useState(false);
 
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+    const [bankList, setBankList] = useState([]);
 
     // --- Style Constants (Matching Document Module) ---
     const LABEL_CLASS = "block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1";
@@ -138,11 +145,15 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                     full_name: '', cpf: '', rg: '', birth_date: '', gender: '', marital_status: '',
                     address_street: '', address_number: '', address_city: '', address_state: '', address_zip_code: '',
                     role: '', cbo: '', department: '', admission_date: '', corporate_email: '', pis: '',
-                    contract_type: 'CLT', work_regime: 'Presencial', salary: ''
+                    contract_type: 'CLT', work_regime: 'Presencial', salary: '',
+                    bank_name: '', bank_agency: '', bank_account: '', pix_key: ''
                 });
                 setPreviewUrl(null);
                 setIsLoadingDetails(false);
             }
+
+            // Load Banks
+            bankService.getBanks().then(setBankList);
         }
     }, [isOpen, collaborator]); // collaborator aqui é o objeto parcial vindo da lista
 
@@ -452,7 +463,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                         </div>
                                                     </div>
 
-                                                    {/* New Hire Logic - Only for New Registrations */}
                                                     {!collaborator && (
                                                         <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 flex flex-col justify-center">
                                                             <label className="flex items-center gap-3 cursor-pointer">
@@ -473,6 +483,66 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                             </label>
                                                         </div>
                                                     )}
+                                                </div>
+
+                                                <div className="md:col-span-2 border-t border-slate-100 pt-6 mt-2">
+                                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                                        Dados Bancários (Para Pagamentos)
+                                                    </h3>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        <div>
+                                                            <label className={LABEL_CLASS}>Banco</label>
+                                                            <div className="relative group">
+                                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <input
+                                                                    name="bank_name"
+                                                                    value={formData.bank_name || ''}
+                                                                    onChange={handleChange}
+                                                                    placeholder="Busque por nome ou código..."
+                                                                    className={`${INPUT_CLASS()} pl-9`}
+                                                                    autoComplete="off"
+                                                                />
+                                                                {/* Dropdown Suggestions */}
+                                                                {/* Only show if text inside input is not an exact match to an existing full name (optional logic, but typically we want to see options while typing) */}
+                                                                {formData.bank_name && bankList.length > 0 && (
+                                                                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto hidden group-focus-within:block hover:block">
+                                                                        {bankList
+                                                                            .filter(b => b.fullName.toLowerCase().includes((formData.bank_name || '').toLowerCase()))
+                                                                            .slice(0, 50) // Limit results
+                                                                            .map(bank => (
+                                                                                <div
+                                                                                    key={bank.code}
+                                                                                    onClick={() => handleChange({ target: { name: 'bank_name', value: bank.fullName } })}
+                                                                                    className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 border-b border-slate-100 last:border-0 flex items-center justify-between cursor-pointer"
+                                                                                >
+                                                                                    <span className="truncate mr-2">{bank.name}</span>
+                                                                                    <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{bank.code}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        {bankList.filter(b => b.fullName.toLowerCase().includes((formData.bank_name || '').toLowerCase())).length === 0 && (
+                                                                            <div className="px-4 py-3 text-xs text-slate-400 text-center">Nenhum banco encontrado.</div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className={LABEL_CLASS}>Chave PIX</label>
+                                                            <input name="pix_key" value={formData.pix_key || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="CPF, Email ou Aleatória" />
+                                                        </div>
+                                                        <div>
+                                                            <label className={LABEL_CLASS}>Agência</label>
+                                                            <input name="bank_agency" value={formData.bank_agency || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="0000" />
+                                                        </div>
+                                                        <div>
+                                                            <label className={LABEL_CLASS}>Conta</label>
+                                                            <input name="bank_account" value={formData.bank_account || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="00000-0" />
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 {/* Active Status Card */}

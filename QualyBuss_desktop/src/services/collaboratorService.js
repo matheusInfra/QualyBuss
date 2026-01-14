@@ -67,13 +67,11 @@ export const collaboratorService = {
             query = query.neq('id', excludeId);
         }
 
-        const { data, error } = await query.single();
+        const { data, error } = await query.maybeSingle();
 
-        // Se encontrar um registro (data não é null), é duplicado.
-        // Se der erro 'PGRST116' (0 rows), não é duplicado.
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
             console.error('Erro ao verificar duplicidade', error);
-            return false; // Assume falso em caso de erro para não bloquear, ou trate diferente
+            return false;
         }
 
         return !!data;
@@ -150,12 +148,18 @@ export const collaboratorService = {
 
 // Helper para formatar dados do formulário para o banco
 const formatPayload = (data) => {
-    // Ajuste conforme necessário para mapear campos do form para colunas do DB
-    return {
-        ...data,
-        // Garante que campos vazios virem null para não quebrar constraints se houver
-        cpf: data.cpf || null,
-        admission_date: data.admission_date || null,
-        birth_date: data.birth_date || null
-    };
+    const payload = { ...data };
+
+    // Remove generated columns that cannot be updated
+    delete payload.search_vector;
+
+    // Remove campos auxiliares de UI que não existem no banco
+    delete payload.isNewHire;
+
+    // Garante que campos vazios virem null para não quebrar constraints se houver
+    payload.cpf = payload.cpf || null;
+    payload.admission_date = payload.admission_date || null;
+    payload.birth_date = payload.birth_date || null;
+
+    return payload;
 };

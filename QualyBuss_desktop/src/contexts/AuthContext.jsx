@@ -10,8 +10,17 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check active session on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn("Session error detected, forcing sign out:", error.message);
+        signOut();
+      } else {
+        setUser(session?.user ?? null);
+      }
+      setLoading(false);
+    }).catch(err => {
+      console.error("Unexpected auth error:", err);
+      signOut();
       setLoading(false);
     });
 
