@@ -34,7 +34,8 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
         bank_name: '',
         bank_agency: '',
         bank_account: '',
-        pix_key: ''
+        pix_key: '',
+        password: '' // Campo auxiliar para criação de usuário
     });
     const [errors, setErrors] = useState({});
     const [avatarFile, setAvatarFile] = useState(null);
@@ -395,6 +396,28 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                     <label className={LABEL_CLASS}>Email Corporativo</label>
                                                     <input type="email" name="corporate_email" value={formData.corporate_email || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="joao@empresa.com" />
                                                 </div>
+
+                                                {/* Auto-Auth Password Field */}
+                                                {!collaborator && formData.corporate_email && (
+                                                    <div className="md:col-span-2 bg-blue-50/50 p-4 rounded-lg border border-blue-100 animate-fade-in">
+                                                        <label className={LABEL_CLASS + " text-blue-700"}>Senha de Acesso (Login)</label>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="text"
+                                                                name="password"
+                                                                value={formData.password || ''}
+                                                                onChange={handleChange}
+                                                                className={INPUT_CLASS()}
+                                                                placeholder="Mínimo 6 caracteres"
+                                                                minLength={6}
+                                                            />
+                                                            <p className="text-[10px] text-blue-600 mt-1.5 ml-1 flex items-center gap-1">
+                                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                Ao preencher este campo, um usuário de login será criado automaticamente.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div>
                                                     <label className={LABEL_CLASS}>Departamento</label>
                                                     <input name="department" value={formData.department || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Ex: Engenharia" />

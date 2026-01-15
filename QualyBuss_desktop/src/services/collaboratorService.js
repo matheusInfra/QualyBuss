@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export const collaboratorService = {
     // Buscar todos os colaboradores
@@ -89,8 +90,70 @@ export const collaboratorService = {
         return data;
     },
 
-    // Criar novo
+    // Criar novo (Híbrido: Com ou Sem Auto-Auth)
     async create(collaborator) {
+        // FLUXO 1: Auto-Auth (Se tiver senha e email corporativo)
+        if (collaborator.password && collaborator.corporate_email) {
+            console.log('Criando colaborador com login automático via Client-Side Admin...');
+
+            // 1. Instanciar cliente Admin (usando Service Role Key)
+            const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+            if (!serviceRoleKey) {
+                throw new Error('CONFIGURAÇÃO: Falta VITE_SUPABASE_SERVICE_ROLE_KEY no .env');
+            }
+
+            const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                }
+            });
+
+            // 2. Criar Usuário no Auth
+            const emailToCreate = collaborator.corporate_email.trim();
+            console.log(`[ClientAdmin] Tentando criar usuário para: '${emailToCreate}'`);
+
+            const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+                email: emailToCreate,
+                password: collaborator.password,
+                email_confirm: true,
+                user_metadata: {
+                    full_name: collaborator.full_name
+                }
+            });
+
+            if (authError) {
+                console.error('Erro ao Criar Auth:', authError);
+                throw new Error(`Falha ao criar usuário: ${authError.message}`);
+            }
+
+            // 3. Preparar Payload com o user_id gerado
+            const payload = formatPayload(collaborator);
+            delete payload.password; // Garantir que senha não vai pro banco
+            payload.user_id = authData.user.id; // VÍNCULO IMPORTANTE
+
+            console.log('Usuário Auth criado:', authData.user.id, '. Inserindo dados...');
+
+            // 4. Inserir no Banco (Usando o cliente Admin para garantir permissões se necessário, ou o normal)
+            const { data: dbData, error: dbError } = await adminSupabase
+                .from('collaborators')
+                .insert([payload])
+                .select()
+                .single();
+
+            if (dbError) {
+                console.error('Erro no Banco. Fazendo Rollback do Auth...', dbError);
+                // Rollback: Deletar o usuário criado para não deixar órfão
+                await adminSupabase.auth.admin.deleteUser(authData.user.id);
+                throw new Error(`Erro ao salvar dados do colaborador: ${dbError.message}`);
+            }
+
+            return dbData;
+        }
+
+        // FLUXO 2: Legado (Apenas Banco de Dados, sem Login)
         const { data, error } = await supabase
             .from('collaborators')
             .insert([formatPayload(collaborator)])
