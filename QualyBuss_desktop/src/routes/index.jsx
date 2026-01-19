@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Login from '../pages/login';
+import ForgotPassword from '../pages/login/ForgotPassword';
 import Layout from '../components/Layout';
 import Dashboard from '../pages/Dashboard';
 import Colaboradores from '../pages/colaboradores';
@@ -23,6 +24,7 @@ export function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Rotas protegidas com Layout */}
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>

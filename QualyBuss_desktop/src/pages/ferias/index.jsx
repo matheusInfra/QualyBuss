@@ -461,8 +461,8 @@ const Ferias = () => {
 
             {/* TAB CONTENT: REQUESTS LIST */}
             {activeTab === 'REQUESTS' && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up">
-                    <div className="overflow-x-auto">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up flex flex-col h-full max-h-[800px]">
+                    <div className="overflow-x-auto overflow-y-auto p-1 flex-1">
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
@@ -565,6 +565,30 @@ const Ferias = () => {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                    {/* Pagination Footer */}
+                    <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50 min-h-[60px]">
+                        <span className="text-sm text-slate-500 font-medium">
+                            Mostrando <span className="text-slate-900 font-bold">{Math.min((page - 1) * ITEMS_PER_PAGE + 1, totalCount)}</span> a <span className="text-slate-900 font-bold">{Math.min(page * ITEMS_PER_PAGE, totalCount)}</span> de <span className="text-slate-900 font-bold">{totalCount}</span> resultados
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-all shadow-sm active:scale-95 flex items-center gap-1"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                Anterior
+                            </button>
+                            <button
+                                onClick={() => setPage(p => (page * ITEMS_PER_PAGE < totalCount ? p + 1 : p))}
+                                disabled={page * ITEMS_PER_PAGE >= totalCount}
+                                className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-all shadow-sm active:scale-95 flex items-center gap-1"
+                            >
+                                Próxima
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
