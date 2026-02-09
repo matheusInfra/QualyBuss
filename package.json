@@ -1,0 +1,75 @@
+{
+  "name": "qualybuss-desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+<<<<<<< HEAD
+    "preview": "vite preview",
+    "test": "vitest"
+=======
+    "preview": "vite preview"
+>>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
+  },
+  "dependencies": {
+    "@google/genai": "^1.35.0",
+    "@google/generative-ai": "^0.24.1",
+<<<<<<< HEAD
+    "@headlessui/react": "^2.2.9",
+=======
+>>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
+    "@heroicons/react": "^2.2.0",
+    "@supabase/supabase-js": "^2.89.0",
+    "@tanstack/react-query": "^5.90.16",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "framer-motion": "^12.24.7",
+    "i18next": "^25.7.4",
+    "i18next-browser-languagedetector": "^8.2.0",
+    "jszip": "^3.10.1",
+<<<<<<< HEAD
+    "leaflet": "^1.9.4",
+=======
+>>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.4.530",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-i18next": "^16.5.2",
+<<<<<<< HEAD
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.11.0",
+    "recharts": "^3.6.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+=======
+    "react-router-dom": "^7.11.0",
+    "recharts": "^3.6.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+>>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+<<<<<<< HEAD
+    "jsdom": "^28.0.0",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.18"
+=======
+    "vite": "^7.2.4"
+>>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
+  }
+}
