@@ -36,9 +36,13 @@ const Auditoria = () => {
     const { data: logs = [], isLoading: loadingLogs, refetch } = useQuery({
         queryKey: ['auditLogs', filters], // Filters in key triggers refetch on change
         queryFn: async () => {
-            // Note: Currently auditService.getLogs ignores filters if not passed
-            // Ideally we pass filters here.
-            const { data } = await auditService.getLogs({ limit: 50 });
+            // Pass filters to service
+            const { data } = await auditService.getLogs({
+                limit: 50,
+                filters: {
+                    search: filters.search
+                }
+            });
             return data || [];
         },
         refetchInterval: 30000
@@ -53,23 +57,43 @@ const Auditoria = () => {
 
     // 3. Risks (Fetch Critical Anomalies)
     // We reuse the timeManagement logic to find daily anomalies
+    // 3. Risks (Fetch Critical Anomalies from TIME and SECURITY)
     const { data: risks = [] } = useQuery({
         queryKey: ['riskAlerts'],
         queryFn: async () => {
-            // Fetch recent entries (last 24h or today)
             const today = new Date().toISOString().slice(0, 10);
-            const entries = await timeManagementService.getAllEntries({ startDate: today, endDate: today });
 
-            // Filter Criticals
-            return entries
+            // A. Time Anomalies
+            const timePromise = timeManagementService.getAllEntries({ startDate: today, endDate: today });
+
+            // B. Security Alerts (DELETEs last 24h)
+            const secPromise = auditService.getSecurityAlerts(24);
+
+            const [entries, securityLogs] = await Promise.all([timePromise, secPromise]);
+
+            // Map Time Risks
+            const timeRisks = entries
                 .filter(e => e.computedAnomaly && e.computedAnomaly.type === 'CRITICAL')
                 .map(e => ({
-                    id: e.id,
+                    id: `time_${e.id}`,
                     user: e.userName,
-                    type: e.computedAnomaly.text,
+                    type: `PONTO: ${e.computedAnomaly.text}`,
                     severity: 'HIGH',
-                    time: new Date(e.clock_in).toLocaleTimeString().slice(0, 5)
+                    time: new Date(e.clock_in).toLocaleTimeString().slice(0, 5),
+                    source: 'TIME'
                 }));
+
+            // Map Security Risks
+            const secRisks = securityLogs.map(log => ({
+                id: `sec_${log.id}`,
+                user: log.changed_by || 'Sistema',
+                type: `SEGURANÇA: Remoção em ${log.table_name}`,
+                severity: 'CRITICAL',
+                time: new Date(log.changed_at).toLocaleTimeString().slice(0, 5),
+                source: 'SECURITY'
+            }));
+
+            return [...secRisks, ...timeRisks];
         },
         refetchInterval: 60000
     });
