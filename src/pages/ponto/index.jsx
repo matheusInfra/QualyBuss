@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { timeManagementService } from '../../services/timeManagementService';
+import { collaboratorService } from '../../services/collaboratorService'; // Added Service
 import { supabase } from '../../services/supabase';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -11,11 +12,14 @@ import {
     ExclamationTriangleIcon,
     FunnelIcon,
     ArrowPathIcon,
-    UserCircleIcon
-} from '@heroicons/react/24/outline';
+    UserCircleIcon,
+    XMarkIcon,
+    PencilSquareIcon
+} from '@heroicons/react/24/outline'; // Added PencilSquareIcon
 
 // Fix Leaflet Icons
 import L from 'leaflet';
+import EditEntryModal from '../../components/EditEntryModal'; // Imported Modal
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
@@ -24,11 +28,31 @@ L.Marker.prototype.options.icon = DefaultIcon;
 const GestaoPonto = () => {
     const queryClient = useQueryClient();
     const [selectedEntry, setSelectedEntry] = useState(null); // For Map View
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Edit Modal
+    const [entryToEdit, setEntryToEdit] = useState(null);
+
+    // --- FILTERS STATE ---
+    const [filters, setFilters] = useState({
+        startDate: new Date().toISOString().slice(0, 10), // Default Today
+        endDate: new Date().toISOString().slice(0, 10),
+        userId: ''
+    });
+
+    // --- COLLABORATORS QUERY (For Filter Dropdown) ---
+    const { data: collaborators = [] } = useQuery({
+        queryKey: ['collaboratorsList'],
+        queryFn: () => collaboratorService.getAllRaw(),
+        staleTime: 300000 // Cache for 5 min
+    });
 
     // --- QUERY ---
     const { data: entries = [], isLoading, refetch } = useQuery({
-        queryKey: ['timeEntries'],
-        queryFn: () => timeManagementService.getAllEntries({}),
+        queryKey: ['timeEntries', filters], // Trigger refetch on filter change
+        queryFn: () => timeManagementService.getAllEntries({
+            startDate: filters.startDate,
+            endDate: filters.endDate,
+            userId: filters.userId || null
+        }),
         refetchInterval: 30000
     });
 
@@ -50,30 +74,90 @@ const GestaoPonto = () => {
 
     return (
         <div className="min-h-screen bg-slate-50/50 p-6 space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="flex justify-between items-center">
+            {/* Header & Title */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Gestão de Ponto</h1>
                     <p className="text-sm text-slate-500">Controle de frequência e auditoria biométrica.</p>
                 </div>
+
+                {/* Actions */}
                 <div className="flex gap-2">
                     <button
                         onClick={async () => {
                             if (confirm("Deseja recalcular o banco de horas de todos os usuários refletidos na tela?")) {
-                                // Demo: Just recalc for the selected entry user or current list logic (to be refined)
-                                // For now, simple refresh
                                 refetch();
                             }
                         }}
-                        className="p-2 text-slate-500 hover:text-indigo-600"
-                        title="Recalcular Banco de Horas"
+                        className="p-2 text-slate-500 hover:text-indigo-600 transition-colors"
+                        title="Recalcular"
                     >
                         <ArrowPathIcon className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                     </button>
-                    <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm">
+                    <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-transform hover:scale-105 active:scale-95">
                         Exportar Folha
                     </button>
                 </div>
+            </div>
+
+            {/* --- FILTER BAR (NEW) --- */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end md:items-center">
+                <div className="flex-1 w-full md:w-auto grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Date Range */}
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase">De</label>
+                        <input
+                            type="date"
+                            value={filters.startDate}
+                            onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase">Até</label>
+                        <input
+                            type="date"
+                            value={filters.endDate}
+                            onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                    </div>
+
+                    {/* Collaborator Select */}
+                    <div className="flex flex-col gap-1 md:col-span-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase">Colaborador</label>
+                        <div className="relative">
+                            <select
+                                value={filters.userId}
+                                onChange={(e) => setFilters(prev => ({ ...prev, userId: e.target.value }))}
+                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-white"
+                            >
+                                <option value="">Todos os Colaboradores</option>
+                                {collaborators.map(c => (
+                                    <option key={c.id} value={c.user_id || c.id}>
+                                        {c.full_name}
+                                    </option>
+                                ))}
+                            </select>
+                            <UserCircleIcon className="w-5 h-5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Clear Filters */}
+                {(filters.userId || filters.startDate !== new Date().toISOString().slice(0, 10)) && (
+                    <button
+                        onClick={() => setFilters({
+                            startDate: new Date().toISOString().slice(0, 10),
+                            endDate: new Date().toISOString().slice(0, 10),
+                            userId: ''
+                        })}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Limpar Filtros"
+                    >
+                        <XMarkIcon className="w-5 h-5" />
+                    </button>
+                )}
             </div>
 
             {/* Bank of Hours Summary (New) */}
@@ -120,7 +204,12 @@ const GestaoPonto = () => {
                                 {entries.map(entry => (
                                     <tr
                                         key={entry.id}
-                                        className={`hover:bg-indigo-50/50 transition-colors cursor-pointer ${selectedEntry?.id === entry.id ? 'bg-indigo-50' : ''}`}
+                                        className={`transition-colors cursor-pointer border-l-4 
+                                            ${selectedEntry?.id === entry.id ? 'bg-indigo-50 border-indigo-500' :
+                                                entry.computedAnomaly?.type === 'CRITICAL' ? 'bg-red-50/30 border-red-400 hover:bg-red-50' :
+                                                    entry.computedAnomaly?.type === 'WARNING' ? 'bg-amber-50/30 border-amber-400 hover:bg-amber-50' :
+                                                        'bg-white border-transparent hover:bg-slate-50'
+                                            }`}
                                         onClick={() => setSelectedEntry(entry)}
                                     >
                                         <td className="p-3">
@@ -176,6 +265,17 @@ const GestaoPonto = () => {
                                             )}
                                         </td>
                                         <td className="p-3">
+                                            <button
+                                                className="text-indigo-600 hover:text-indigo-900 mr-3"
+                                                title="Editar Registro"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEntryToEdit(entry);
+                                                    setIsEditModalOpen(true);
+                                                }}
+                                            >
+                                                <PencilSquareIcon className="w-5 h-5" />
+                                            </button>
                                             <button
                                                 className="text-xs text-indigo-600 hover:underline"
                                                 onClick={(e) => {
@@ -248,6 +348,14 @@ const GestaoPonto = () => {
                     )}
                 </div>
             </div>
+
+            {/* EDIT MODAL */}
+            <EditEntryModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                entry={entryToEdit}
+                onSave={() => refetch()}
+            />
         </div>
     );
 };

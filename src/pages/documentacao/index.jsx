@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collaboratorService } from '../../services/collaboratorService';
 import { documentService } from '../../services/documentService';
 import CollaboratorCard from '../../components/CollaboratorCard';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import JSZip from 'jszip';
 
 const Documentacao = () => {

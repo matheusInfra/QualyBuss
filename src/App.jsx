@@ -1,6 +1,6 @@
 import { AppRoutes } from './routes';
 import AuthProvider from './contexts/AuthContext';
-import { NotificationProvider } from './context/NotificationContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 function App() {
   return (

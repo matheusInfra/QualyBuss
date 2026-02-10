@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 import AIChatWidget from '../AIChatWidget';
-<<<<<<< HEAD
 import TermsAcceptanceModal from '../../pages/legal/TermsAcceptanceModal';
 import { termsService } from '../../services/termsService';
 import logo from '../../assets/logo.svg'; // Ensure logo is imported for mobile header
@@ -34,15 +33,6 @@ const Layout = () => {
                 open={showTermsModal}
                 onSuccess={() => setShowTermsModal(false)}
             />
-=======
-import logo from '../../assets/logo.svg'; // Ensure logo is imported for mobile header
-
-const Layout = () => {
-    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-
-    return (
-        <div className="flex h-screen bg-slate-100 font-sans antialiased text-slate-900 overflow-hidden">
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
 
             {/* Sidebar (Desktop & Mobile) */}
             <Sidebar

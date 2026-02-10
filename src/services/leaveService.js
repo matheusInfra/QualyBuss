@@ -58,7 +58,6 @@ export const leaveService = {
 
         if (error) throw error;
         return data;
-<<<<<<< HEAD
     },
 
     // Get Vacation Balance (RPC)
@@ -77,7 +76,6 @@ export const leaveService = {
             // Fallback default
             return { total: 30, available: 0, taken: 0 };
         }
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
+
     }
 };

@@ -1,12 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import LandingPage from '../pages/LandingPage';
 import Login from '../pages/login';
-<<<<<<< HEAD
 import ForgotPassword from '../pages/login/ForgotPassword';
 import TermsOfUse from '../pages/legal/TermsOfUse';
 import PrivacyPolicy from '../pages/legal/PrivacyPolicy';
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
 import Layout from '../components/Layout';
 import Dashboard from '../pages/Dashboard';
 import Colaboradores from '../pages/colaboradores';
@@ -18,11 +16,8 @@ import Ausencias from '../pages/ausencias';
 import Configuracoes from '../pages/configuracoes';
 import Auditoria from '../pages/auditoria';
 import Ocorrencias from '../pages/ocorrencias';
-<<<<<<< HEAD
 import Compliance from '../pages/compliance';
 import GestaoPonto from '../pages/ponto';
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
 
 const PrivateRoute = ({ children }) => {
   const { user } = useAuth();
@@ -33,15 +28,14 @@ export function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
-<<<<<<< HEAD
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/terms" element={<TermsOfUse />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
 
-        {/* Rotas protegidas com Layout */}
+        {/* Private Routes */}
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/colaboradores" element={<Colaboradores />} />
@@ -53,14 +47,12 @@ export function AppRoutes() {
           <Route path="/configuracoes" element={<Configuracoes />} />
           <Route path="/documentacao" element={<Documentacao />} />
           <Route path="/importacao" element={<Importacao />} />
-<<<<<<< HEAD
           <Route path="/compliance" element={<Compliance />} />
           <Route path="/ponto" element={<GestaoPonto />} />
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
         </Route>
 
-        <Route path="*" element={<Navigate to="/login" />} />
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );

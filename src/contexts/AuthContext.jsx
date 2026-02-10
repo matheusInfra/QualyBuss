@@ -16,10 +16,7 @@ export const AuthProvider = ({ children }) => {
         signOut();
       } else {
         setUser(session?.user ?? null);
-<<<<<<< HEAD
         if (session) registerSession(session);
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
       }
       setLoading(false);
     }).catch(err => {
@@ -32,16 +29,12 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
-<<<<<<< HEAD
       if (session) registerSession(session);
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-<<<<<<< HEAD
   // --- Single Device Enforcement ---
   const registerSession = async (session) => {
     if (!session?.user?.id) return;
@@ -84,8 +77,6 @@ export const AuthProvider = ({ children }) => {
     return () => supabase.removeChannel(channel);
   };
 
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
   // --- Auto-Logout Logic (15 min) ---
   useEffect(() => {
     if (!user) return; // Only track if logged in

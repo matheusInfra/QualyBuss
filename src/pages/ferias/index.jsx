@@ -3,7 +3,7 @@ import { holidayService } from '../../services/holidayService';
 import { leaveService } from '../../services/leaveService';
 import { collaboratorService } from '../../services/collaboratorService';
 import { documentService } from '../../services/documentService';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -461,13 +461,8 @@ const Ferias = () => {
 
             {/* TAB CONTENT: REQUESTS LIST */}
             {activeTab === 'REQUESTS' && (
-<<<<<<< HEAD
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up flex flex-col h-full max-h-[800px]">
                     <div className="overflow-x-auto overflow-y-auto p-1 flex-1">
-=======
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up">
-                    <div className="overflow-x-auto">
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
@@ -571,7 +566,6 @@ const Ferias = () => {
                             </tbody>
                         </table>
                     </div>
-<<<<<<< HEAD
                     {/* Pagination Footer */}
                     <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50 min-h-[60px]">
                         <span className="text-sm text-slate-500 font-medium">
@@ -596,270 +590,272 @@ const Ferias = () => {
                             </button>
                         </div>
                     </div>
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
                 </div>
             )}
 
             {/* NEW & IMPROVED MODAL */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
-                        {/* Modal Header */}
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <div>
-                                <h3 className="text-xl font-bold text-slate-800">
-                                    {editingId ? 'Editar Solicitação' : 'Nova Ausência'}
-                                </h3>
-                                <p className="text-sm text-slate-500">Preencha os dados da solicitação abaixo.</p>
-                            </div>
-                            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm hover:shadow transition-all">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-
-                        {/* Modal Body */}
-                        <div className="p-8 overflow-y-auto">
-                            <form onSubmit={handleSubmit} className="space-y-8">
-
-                                {/* 1. Type Selection (Cards) */}
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
+                            {/* Modal Header */}
+                            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Tipo de Ausência</label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                        {[
-                                            { id: 'FERIAS', label: 'Férias', desc: 'Regras da CLT', color: 'emerald' },
-                                            { id: 'FOLGA', label: 'Folga', desc: 'Abono de horas', color: 'blue' },
-                                            { id: 'LICENCA', label: 'Licença', desc: 'Maternidade/Outros', color: 'purple' },
-                                            { id: 'FALTA', label: 'Falta', desc: 'Ausência injustificada', color: 'red' },
-                                            { id: 'ATESTADO', label: 'Atestado', desc: 'Justificativa médica', color: 'cyan' }
-                                        ].map(opt => (
-                                            <button
-                                                key={opt.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    setFormData(prev => ({ ...prev, type: opt.id }));
-                                                    // Trigger validation check with new type
-                                                    if (opt.id === 'FERIAS') {
-                                                        validateDate(formData.startDate);
-                                                    } else {
-                                                        setValidationError(null); // Clear errors for non-FERIAS
-                                                    }
-                                                }}
-                                                className={`
+                                    <h3 className="text-xl font-bold text-slate-800">
+                                        {editingId ? 'Editar Solicitação' : 'Nova Ausência'}
+                                    </h3>
+                                    <p className="text-sm text-slate-500">Preencha os dados da solicitação abaixo.</p>
+                                </div>
+                                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm hover:shadow transition-all">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-8 overflow-y-auto">
+                                <form onSubmit={handleSubmit} className="space-y-8">
+
+                                    {/* 1. Type Selection (Cards) */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Tipo de Ausência</label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            {[
+                                                { id: 'FERIAS', label: 'Férias', desc: 'Regras da CLT', color: 'emerald' },
+                                                { id: 'FOLGA', label: 'Folga', desc: 'Abono de horas', color: 'blue' },
+                                                { id: 'LICENCA', label: 'Licença', desc: 'Maternidade/Outros', color: 'purple' },
+                                                { id: 'FALTA', label: 'Falta', desc: 'Ausência injustificada', color: 'red' },
+                                                { id: 'ATESTADO', label: 'Atestado', desc: 'Justificativa médica', color: 'cyan' }
+                                            ].map(opt => (
+                                                <button
+                                                    key={opt.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFormData(prev => ({ ...prev, type: opt.id }));
+                                                        // Trigger validation check with new type
+                                                        if (opt.id === 'FERIAS') {
+                                                            validateDate(formData.startDate);
+                                                        } else {
+                                                            setValidationError(null); // Clear errors for non-FERIAS
+                                                        }
+                                                    }}
+                                                    className={`
                                                     relative p-4 rounded-xl border-2 text-left transition-all group
                                                     ${formData.type === opt.id
-                                                        ? `border-${opt.color}-500 bg-${opt.color}-50/50 ring-1 ring-${opt.color}-500`
-                                                        : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50'
-                                                    }
+                                                            ? `border-${opt.color}-500 bg-${opt.color}-50/50 ring-1 ring-${opt.color}-500`
+                                                            : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                                                        }
                                                 `}
-                                            >
-                                                <div className={`font-bold ${formData.type === opt.id ? `text-${opt.color}-700` : 'text-slate-700'}`}>
-                                                    {opt.label}
-                                                </div>
-                                                <div className="text-[10px] text-slate-400 mt-1 font-medium">{opt.desc}</div>
-
-                                                {formData.type === opt.id && (
-                                                    <div className={`absolute top-3 right-3 w-4 h-4 bg-${opt.color}-500 rounded-full flex items-center justify-center`}>
-                                                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                                >
+                                                    <div className={`font-bold ${formData.type === opt.id ? `text-${opt.color}-700` : 'text-slate-700'}`}>
+                                                        {opt.label}
                                                     </div>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                                    <div className="text-[10px] text-slate-400 mt-1 font-medium">{opt.desc}</div>
 
-                                {/* 2. Collaborator */}
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Colaborador</label>
-                                    <select
-                                        name="collaboratorId"
-                                        value={formData.collaboratorId}
-                                        onChange={handleFormChange}
-                                        className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-blue-500 focus:bg-white transition-colors text-slate-700 font-medium"
-                                        required
-                                    >
-                                        <option value="">Selecione o colaborador...</option>
-                                        {collaborators.map(c => (
-                                            <option key={c.id} value={c.id}>{c.full_name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* 3. Dates & Validation Info */}
-                                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Data de Início</label>
-                                            <input
-                                                type="date"
-                                                name="startDate"
-                                                value={formData.startDate}
-                                                onChange={handleFormChange}
-                                                className={`w-full px-4 py-3 border-2 rounded-xl outline-none transition-colors font-medium
-                                                    ${validationError
-                                                        ? 'border-red-300 bg-red-50 text-red-700 focus:border-red-500'
-                                                        : 'border-slate-200 focus:border-blue-500'}`}
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Data de Fim</label>
-                                            <input
-                                                type="date"
-                                                name="endDate"
-                                                value={formData.endDate}
-                                                onChange={handleFormChange}
-                                                min={formData.startDate}
-                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500 font-medium"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Verification Feedback */}
-                                    {validationError && (
-                                        <div className="flex items-start gap-3 p-3 bg-red-100/50 rounded-lg border border-red-100">
-                                            <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                            <div>
-                                                <p className="text-xs font-bold text-red-700 uppercase">Bloqueio CLT Detectado</p>
-                                                <p className="text-xs text-red-600 mt-0.5">
-                                                    Para férias, o início não pode ser em sextas, sábados ou vésperas de feriado.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {!validationError && formData.startDate && formData.type === 'FERIAS' && (
-                                        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg border border-emerald-100">
-                                            <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                            <span className="text-xs font-bold text-emerald-700">Data válida para início de Férias.</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 4. Reason */}
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Motivo / Observação</label>
-                                    <textarea
-                                        name="reason"
-                                        value={formData.reason}
-                                        onChange={handleFormChange}
-                                        rows="2"
-                                    ></textarea>
-                                </div>
-
-                                {/* 5. Attachment (Conditionally displayed) */}
-                                {['FALTA', 'ATESTADO'].includes(formData.type) && (
-                                    <div className="animate-fade-in-up">
-                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Anexar Comprovante (Obrigatório)</label>
-                                        <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors group">
-                                            <input
-                                                type="file"
-                                                onChange={(e) => setAttachment(e.target.files[0])}
-                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                accept=".pdf,.jpg,.jpeg,.png"
-                                            />
-                                            <div className="flex flex-col items-center gap-2">
-                                                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${attachment ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 group-hover:text-blue-500 group-hover:bg-blue-50'}`}>
-                                                    {attachment ? (
-                                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                                    ) : (
-                                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                                    {formData.type === opt.id && (
+                                                        <div className={`absolute top-3 right-3 w-4 h-4 bg-${opt.color}-500 rounded-full flex items-center justify-center`}>
+                                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                                        </div>
                                                     )}
-                                                </div>
-                                                <p className="text-sm font-medium text-slate-600">
-                                                    {attachment ? attachment.name : 'Clique para selecionar ou arraste aqui'}
-                                                </p>
-                                                {!attachment && <p className="text-xs text-slate-400">PDF, JPG ou PNG (Max 5MB)</p>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Collaborator */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Colaborador</label>
+                                        <select
+                                            name="collaboratorId"
+                                            value={formData.collaboratorId}
+                                            onChange={handleFormChange}
+                                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-blue-500 focus:bg-white transition-colors text-slate-700 font-medium"
+                                            required
+                                        >
+                                            <option value="">Selecione o colaborador...</option>
+                                            {collaborators.map(c => (
+                                                <option key={c.id} value={c.id}>{c.full_name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* 3. Dates & Validation Info */}
+                                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Data de Início</label>
+                                                <input
+                                                    type="date"
+                                                    name="startDate"
+                                                    value={formData.startDate}
+                                                    onChange={handleFormChange}
+                                                    className={`w-full px-4 py-3 border-2 rounded-xl outline-none transition-colors font-medium
+                                                    ${validationError
+                                                            ? 'border-red-300 bg-red-50 text-red-700 focus:border-red-500'
+                                                            : 'border-slate-200 focus:border-blue-500'}`}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Data de Fim</label>
+                                                <input
+                                                    type="date"
+                                                    name="endDate"
+                                                    value={formData.endDate}
+                                                    onChange={handleFormChange}
+                                                    min={formData.startDate}
+                                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500 font-medium"
+                                                    required
+                                                />
                                             </div>
                                         </div>
+
+                                        {/* Verification Feedback */}
+                                        {validationError && (
+                                            <div className="flex items-start gap-3 p-3 bg-red-100/50 rounded-lg border border-red-100">
+                                                <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                <div>
+                                                    <p className="text-xs font-bold text-red-700 uppercase">Bloqueio CLT Detectado</p>
+                                                    <p className="text-xs text-red-600 mt-0.5">
+                                                        Para férias, o início não pode ser em sextas, sábados ou vésperas de feriado.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {!validationError && formData.startDate && formData.type === 'FERIAS' && (
+                                            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                                                <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                <span className="text-xs font-bold text-emerald-700">Data válida para início de Férias.</span>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
 
-                                {/* Footer Actions */}
-                                <div className="pt-6 border-t border-slate-100 flex gap-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="flex-1 py-4 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={!!validationError}
-                                        className="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95"
-                                    >
-                                        {editingId ? 'Salvar Alterações' : 'Confirmar Solicitação'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* PENDING ACTION MODAL (Quick View) */}
-            {pendingActionId && (() => {
-                const req = leaves.find(l => l.id === pendingActionId);
-                if (!req) return null;
-
-                return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in">
-                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-zoom-in relative">
-                            <button onClick={() => setPendingActionId(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-
-                            <div className="p-6 text-center">
-                                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-slow">
-                                    <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-800">Aprovação Pendente</h3>
-                                <p className="text-sm text-slate-500 mt-1">O colaborador solicitou {req.type.toLowerCase()}.</p>
-
-                                <div className="bg-slate-50 rounded-xl p-4 my-6 text-left border border-slate-100">
-                                    <div className="mb-2">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Colaborador</p>
-                                        <p className="font-bold text-slate-700">{req.collaborators?.full_name}</p>
+                                    {/* 4. Reason */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Motivo / Observação</label>
+                                        <textarea
+                                            name="reason"
+                                            value={formData.reason}
+                                            onChange={handleFormChange}
+                                            rows="2"
+                                        ></textarea>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Início</p>
-                                            <p className="text-sm font-medium text-slate-600">{new Date(req.start_date).toLocaleDateString()}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Fim</p>
-                                            <p className="text-sm font-medium text-slate-600">{new Date(req.end_date).toLocaleDateString()}</p>
-                                        </div>
-                                    </div>
-                                    {req.reason && (
-                                        <div className="mt-2 pt-2 border-t border-slate-200">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Motivo</p>
-                                            <p className="text-xs text-slate-500 italic">"{req.reason}"</p>
+
+                                    {/* 5. Attachment (Conditionally displayed) */}
+                                    {['FALTA', 'ATESTADO'].includes(formData.type) && (
+                                        <div className="animate-fade-in-up">
+                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Anexar Comprovante (Obrigatório)</label>
+                                            <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors group">
+                                                <input
+                                                    type="file"
+                                                    onChange={(e) => setAttachment(e.target.files[0])}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                />
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${attachment ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 group-hover:text-blue-500 group-hover:bg-blue-50'}`}>
+                                                        {attachment ? (
+                                                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                        ) : (
+                                                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm font-medium text-slate-600">
+                                                        {attachment ? attachment.name : 'Clique para selecionar ou arraste aqui'}
+                                                    </p>
+                                                    {!attachment && <p className="text-xs text-slate-400">PDF, JPG ou PNG (Max 5MB)</p>}
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
-                                </div>
 
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => handleStatusChange(req.id, 'REJECTED')}
-                                        className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors"
-                                    >
-                                        Reprovar
-                                    </button>
-                                    <button
-                                        onClick={() => handleStatusChange(req.id, 'APPROVED')}
-                                        className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-600 transition-transform active:scale-95"
-                                    >
-                                        Aprovar
-                                    </button>
-                                </div>
+                                    {/* Footer Actions */}
+                                    <div className="pt-6 border-t border-slate-100 flex gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsModalOpen(false)}
+                                            className="flex-1 py-4 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={!!validationError}
+                                            className="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95"
+                                        >
+                                            {editingId ? 'Salvar Alterações' : 'Confirmar Solicitação'}
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     </div>
-                );
-            })()}
-        </div>
+                )
+            }
+            {/* PENDING ACTION MODAL (Quick View) */}
+            {
+                pendingActionId && (() => {
+                    const req = leaves.find(l => l.id === pendingActionId);
+                    if (!req) return null;
+
+                    return (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in">
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-zoom-in relative">
+                                <button onClick={() => setPendingActionId(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+
+                                <div className="p-6 text-center">
+                                    <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-slow">
+                                        <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-800">Aprovação Pendente</h3>
+                                    <p className="text-sm text-slate-500 mt-1">O colaborador solicitou {req.type.toLowerCase()}.</p>
+
+                                    <div className="bg-slate-50 rounded-xl p-4 my-6 text-left border border-slate-100">
+                                        <div className="mb-2">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Colaborador</p>
+                                            <p className="font-bold text-slate-700">{req.collaborators?.full_name}</p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Início</p>
+                                                <p className="text-sm font-medium text-slate-600">{new Date(req.start_date).toLocaleDateString()}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Fim</p>
+                                                <p className="text-sm font-medium text-slate-600">{new Date(req.end_date).toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                        {req.reason && (
+                                            <div className="mt-2 pt-2 border-t border-slate-200">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Motivo</p>
+                                                <p className="text-xs text-slate-500 italic">"{req.reason}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => handleStatusChange(req.id, 'REJECTED')}
+                                            className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors"
+                                        >
+                                            Reprovar
+                                        </button>
+                                        <button
+                                            onClick={() => handleStatusChange(req.id, 'APPROVED')}
+                                            className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-600 transition-transform active:scale-95"
+                                        >
+                                            Aprovar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()
+            }
+        </div >
     );
 };
 

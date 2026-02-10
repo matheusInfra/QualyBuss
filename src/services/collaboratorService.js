@@ -1,8 +1,5 @@
 import { supabase } from './supabase';
-<<<<<<< HEAD
 import { createClient } from '@supabase/supabase-js';
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
 
 export const collaboratorService = {
     // Buscar todos os colaboradores
@@ -93,7 +90,6 @@ export const collaboratorService = {
         return data;
     },
 
-<<<<<<< HEAD
     // Criar novo (Híbrido: Com ou Sem Auto-Auth)
     async create(collaborator) {
         // FLUXO 1: Auto-Auth (Se tiver senha e email corporativo)
@@ -158,10 +154,6 @@ export const collaboratorService = {
         }
 
         // FLUXO 2: Legado (Apenas Banco de Dados, sem Login)
-=======
-    // Criar novo
-    async create(collaborator) {
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
         const { data, error } = await supabase
             .from('collaborators')
             .insert([formatPayload(collaborator)])

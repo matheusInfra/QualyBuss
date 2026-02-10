@@ -75,7 +75,6 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
                 </svg>
             )
         },
-<<<<<<< HEAD
         {
             path: '/compliance', label: 'Conformidade', icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -90,8 +89,6 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
                 </svg>
             )
         },
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
     ];
 
     return (

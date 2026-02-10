@@ -10,7 +10,6 @@ import {
     CurrencyDollarIcon,
     CakeIcon,
     BuildingOfficeIcon,
-<<<<<<< HEAD
     UserMinusIcon,
     ShieldCheckIcon,
     ExclamationTriangleIcon
@@ -19,10 +18,6 @@ import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend
 } from 'recharts';
-=======
-    UserMinusIcon
-} from '@heroicons/react/24/outline';
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
 
 const Dashboard = () => {
     const [stats, setStats] = useState(null);
@@ -159,7 +154,6 @@ const Dashboard = () => {
                 })}
             </div>
 
-<<<<<<< HEAD
             {/* --- SEÇÃO: SAÚDE OPERACIONAL E COMPLIANCE (NOVO) --- */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* 1. Compliance Score (Pie Chart) */}
@@ -266,9 +260,6 @@ const Dashboard = () => {
                     </button>
                 </div>
             </div>
-
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Column */}
                 <div className="lg:col-span-2 space-y-8">

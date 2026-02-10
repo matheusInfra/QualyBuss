@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collaboratorService } from '../../services/collaboratorService';
 import { documentService } from '../../services/documentService';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotification } from '../../contexts/NotificationContext';
 // Import PDF.js worker
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';

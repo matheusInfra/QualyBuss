@@ -146,7 +146,6 @@ export const dashboardService = {
         };
     },
 
-<<<<<<< HEAD
     async fetchComplianceMetrics() {
         // 1. Total Active
         const { count: totalActive } = await supabase
@@ -219,19 +218,7 @@ export const dashboardService = {
                 ...comp,
                 ...audit
             };
-=======
-    // --- Main Initial Fetcher ---
-    async getKPIs() {
-        try {
-            const [collab, occur, absence, move] = await Promise.all([
-                this.fetchCollaboratorMetrics(),
-                this.fetchOccurrenceMetrics(),
-                this.fetchAbsenceMetrics(),
-                this.fetchMovementMetrics()
-            ]);
 
-            return { ...collab, ...occur, ...absence, ...move };
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
         } catch (error) {
             console.error("Dashboard KPI Error:", error);
             return null;

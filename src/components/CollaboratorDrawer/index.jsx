@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { cepService } from '../../services/cepService';
 import { collaboratorService } from '../../services/collaboratorService';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { validators } from '../../utils/validators';
 
 import { bankService } from '../../services/bankService';
@@ -34,16 +34,12 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
         bank_name: '',
         bank_agency: '',
         bank_account: '',
-<<<<<<< HEAD
         pix_key: '',
 
         password: '', // Campo auxiliar para criação de usuário
         weekly_hours: 44,
         lunch_info: { type: 'VARIABLE', duration_minutes: 60 },
         work_schedule: { days: ['MON', 'TUE', 'WED', 'THU', 'FRI'], shifts: [{ start: '08:00', end: '18:00' }] }
-=======
-        pix_key: ''
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
     });
     const [errors, setErrors] = useState({});
     const [avatarFile, setAvatarFile] = useState(null);
@@ -131,7 +127,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                     try {
                         const fullData = await collaboratorService.getById(collaborator.id);
                         if (fullData) {
-<<<<<<< HEAD
                             // Extract Lunch Info from nested work_schedule if available (Migration/Compatibility)
                             let mergedData = { ...fullData };
                             if (fullData.work_schedule?.lunch) {
@@ -150,9 +145,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                             }
 
                             setFormData(mergedData);
-=======
-                            setFormData(fullData);
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
                             setPreviewUrl(fullData.avatar_url || null);
                         } else {
                             // Fallback se falhar (não deveria acontecer)
@@ -176,7 +168,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                     address_street: '', address_number: '', address_city: '', address_state: '', address_zip_code: '',
                     role: '', cbo: '', department: '', admission_date: '', corporate_email: '', pis: '',
                     contract_type: 'CLT', work_regime: 'Presencial', salary: '',
-<<<<<<< HEAD
                     bank_name: '', bank_agency: '', bank_account: '', pix_key: '',
                     weekly_hours: 44,
                     lunch_info: { type: 'VARIABLE', duration_minutes: 60 },
@@ -184,9 +175,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                         days: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
                         shifts: [{ start: '08:00', end: '18:00' }]
                     }
-=======
-                    bank_name: '', bank_agency: '', bank_account: '', pix_key: ''
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
                 });
                 setPreviewUrl(null);
                 setIsLoadingDetails(false);
@@ -228,7 +216,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
             return;
         }
 
-<<<<<<< HEAD
         // Prepare Data
         let finalData = { ...formData };
 
@@ -246,10 +233,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
 
 
         // Vacation Logic for New Hires
-=======
-        // Vacation Logic for New Hires
-        let finalData = { ...formData };
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
         if (!collaborator && formData.isNewHire) {
             const admission = formData.admission_date ? new Date(formData.admission_date) : new Date();
             const vestingEnd = new Date(admission);
@@ -302,11 +285,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                         {/* Tabs */}
                         <div className="bg-white border-b border-slate-200 px-8 sticky top-0 z-10 shadow-sm">
                             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-<<<<<<< HEAD
                                 {['pessoal', 'profissional', 'contratual', 'jornada', 'historico'].map((tab) => (
-=======
-                                {['pessoal', 'profissional', 'contratual', 'historico'].map((tab) => (
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
                                     <button
                                         key={tab}
                                         type="button"
@@ -459,7 +438,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                     <label className={LABEL_CLASS}>Email Corporativo</label>
                                                     <input type="email" name="corporate_email" value={formData.corporate_email || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="joao@empresa.com" />
                                                 </div>
-<<<<<<< HEAD
 
                                                 {/* Auto-Auth Password Field */}
                                                 {!collaborator && formData.corporate_email && (
@@ -482,8 +460,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                         </div>
                                                     </div>
                                                 )}
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
                                                 <div>
                                                     <label className={LABEL_CLASS}>Departamento</label>
                                                     <input name="department" value={formData.department || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Ex: Engenharia" />
@@ -650,7 +626,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                     </div>
                                 )}
 
-<<<<<<< HEAD
                                 {/* Tab: JORNADA (Time Policies) - REDESIGNED */}
                                 {activeTab === 'jornada' && (
                                     <div className="animate-fade-in space-y-6">
@@ -900,8 +875,6 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                     </div>
                                 )}
 
-=======
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
                                 {/* Tab: HISTÓRICO */}
                                 {activeTab === 'historico' && (
                                     <div className="h-full flex flex-col items-center justify-center text-center py-24 animate-fade-in opacity-60">

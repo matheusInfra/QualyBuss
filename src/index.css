@@ -1,10 +1,5 @@
 @import "tailwindcss";
 
-<<<<<<< HEAD
-=======
-@import "tailwindcss";
-
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
 :root {
   font-family: 'Outfit', sans-serif;
 }
@@ -26,7 +21,6 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-<<<<<<< HEAD
   
   /* Custom Slim Scrollbar for Sidebar */
   .scrollbar-thin::-webkit-scrollbar {
@@ -55,28 +49,4 @@
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
-=======
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
->>>>>>> 74de67d4837be6abce630f234cd7df17c160c62f
 }

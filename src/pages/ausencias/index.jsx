@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { absenceService } from '../../services/absenceService';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import CollaboratorBalanceCard from '../../components/CollaboratorBalanceCard'; // New component
 import AbsenceDrawer from '../../components/AbsenceDrawer'; // New component
 

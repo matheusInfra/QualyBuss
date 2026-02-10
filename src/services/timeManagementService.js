@@ -112,12 +112,36 @@ export const timeManagementService = {
     /**
      * Update status (Approve/Reject/Adjust)
      */
+    /**
+     * Update status (Approve/Reject/Adjust)
+     */
     async updateEntryStatus(id, status, notes) {
         const { data, error } = await supabase
             .from('time_entries')
             .update({
                 status,
                 admin_notes: notes,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Update Entry Details (Time, Type, Justification)
+     */
+    async updateEntryDetails(id, { clock_in, type, justification }) {
+        const { data, error } = await supabase
+            .from('time_entries')
+            .update({
+                clock_in,
+                type,
+                admin_notes: justification, // Saving justification in notes
+                status: 'VALID', // Auto-validate on edit
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)
