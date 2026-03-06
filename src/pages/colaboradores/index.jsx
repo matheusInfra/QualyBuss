@@ -46,7 +46,7 @@ const Colaboradores = () => {
     const totalCount = queryData?.count || 0;
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-    const { createCollaborator, updateCollaborator, toggleStatus } = useCollaboratorMutations();
+    const { createCollaborator, createCollaboratorBatch, updateCollaborator, toggleStatus } = useCollaboratorMutations();
 
     // Refetch when filters change is handled automatically by queryKey dependency in hook
     useEffect(() => {
@@ -99,49 +99,33 @@ const Colaboradores = () => {
     };
 
     const handleImportData = async (importedData) => {
-        setIsLoading(true); // Bloqueia UI durante importação
+        setIsLoading(true);
         try {
-            let successCount = 0;
-            let errors = [];
-
-            for (const row of importedData) {
-                try {
-                    // 1. Parser reverso (CSV p/ Objeto) se vier do modelo avançado
-                    // Se o objeto já vier estruturado do modal (importação simples), usa direto.
-                    // Se vier 'flat', precisaríamos reconstruir. 
-                    // Assumindo por enquanto que o Modal entrega um objeto "pronto" ou quase pronto.
-                    // Vamos garantir defaults mínimos:
-
-                    const payload = { ...row };
-
-                    // Defaults de Jornada se não existir
-                    if (!payload.work_schedule) {
-                        payload.work_schedule = { days: ['MON', 'TUE', 'WED', 'THU', 'FRI'], shifts: [{ start: '08:00', end: '18:00' }] };
-                        payload.weekly_hours = 44;
-                    }
-                    // Tratamento de senha default se criar usuário
-                    if (payload.corporate_email && !payload.password) {
-                        payload.password = 'Mudar123';
-                    }
-
-                    await createCollaborator.mutateAsync(payload);
-                    successCount++;
-                } catch (e) {
-                    console.error("Falha ao importar linha", row, e);
-                    errors.push(`${row.full_name || 'Desconhecido'}: ${e.message}`);
+            // Prepara todos os dados do lote
+            const payloadArray = importedData.map(row => {
+                const payload = { ...row };
+                // Defaults de Jornada se não existir
+                if (!payload.work_schedule) {
+                    payload.work_schedule = { days: ['MON', 'TUE', 'WED', 'THU', 'FRI'], shifts: [{ start: '08:00', end: '18:00' }] };
+                    payload.weekly_hours = 44;
                 }
-            }
+                // Senha padrão se criar auth - NOTA: Batch Auth create não é nativo, requeriria Edge Function ou map de promises no server.
+                // Como Batch Insert foca em dados na tabela, a criação de conta corporativa automatizada deve ser revista no futuro
+                if (payload.corporate_email && !payload.password) {
+                    payload.password = 'Mudar123';
+                }
+                return payload;
+            });
 
-            if (errors.length > 0) {
-                notify.warning("Importação Parcial", `${successCount} sucesso, ${errors.length} erros. Verifique o console.`);
-            } else {
-                notify.success("Importação Concluída", `${successCount} colaboradores importados.`);
-            }
+            // Envia tudo em um único request (Performance Máxima)
+            await createCollaboratorBatch.mutateAsync(payloadArray);
 
+            notify.success("Importação Concluída", `${payloadArray.length} colaboradores importados de uma só vez.`);
             setIsImportModalOpen(false);
             refetch();
         } catch (err) {
-            notify.error("Erro Geral", "Falha crítica na importação.");
+            console.error("Falha ao importar lote:", err);
+            notify.error("Erro Geral", "Falha crítica na importação do lote.");
         } finally {
             setIsLoading(false);
         }

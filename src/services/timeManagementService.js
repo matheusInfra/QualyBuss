@@ -10,14 +10,13 @@ export const timeManagementService = {
             .select(`*`)
             .order('clock_in', { ascending: false });
 
-        if (startDate) query = query.gte('clock_in', startDate);
-        if (endDate) query = query.lte('clock_in', endDate);
+        if (startDate) query = query.gte('clock_in', `${startDate}T00:00:00`);
+        if (endDate) query = query.lte('clock_in', `${endDate}T23:59:59`);
         if (userId) query = query.eq('user_id', userId);
 
         const { data, error } = await query;
         if (error) throw error;
 
-        // --- ENTERPRISE CALCULATION ENGINE ---
         return data.map(entry => {
             const entryDate = new Date(entry.clock_in);
             let anomaly = null;
@@ -26,16 +25,12 @@ export const timeManagementService = {
             const schedule = entry.work_schedule;
 
             if (!schedule) {
-                // If no schedule is active, we can't calculate precision, but we flag it
-                // anomaly = { type: 'WARNING', text: 'Sem Escala Definida' }; 
-                // (Optional: don't flag if business allows flexible freelance work)
+                // If no schedule is active, we can't calculate precision
             } else {
                 const dayMap = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
                 const dayCode = dayMap[entryDate.getDay()];
 
                 // 1. Check if it's a Working Day
-                // Handle Overnight Shifts: If EXIT entry is early morning (e.g. < 12:00) and today is off,
-                // check if YESTERDAY was a working day.
                 let isWorkingDay = schedule.days && schedule.days.includes(dayCode);
 
                 // Overnight Logic Fix
@@ -54,9 +49,7 @@ export const timeManagementService = {
                     anomaly = { type: 'CRITICAL', text: 'Dia de Folga (Hora Extra?)' };
                 }
 
-                // 2. Schedule Adherence (Tolerância CLT Art. 58: 10 mins daily)
-                // We check shifts[0] as primary shift. 
-                // NOTE: Real enterprise systems cross-check multiple shifts. We assume single shift for now.
+                // 2. Schedule Adherence
                 else if (schedule.shifts && schedule.shifts.length > 0) {
                     const shift = schedule.shifts[0];
                     const tolerance = schedule.settings?.entry_tolerance_minutes || 10;
@@ -110,8 +103,30 @@ export const timeManagementService = {
     },
 
     /**
-     * Update status (Approve/Reject/Adjust)
+     * Get Bank of Hours Summary
      */
+    async getBankOfHoursSummary(userId) {
+        let query = supabase.from('time_bank').select('current_balance_minutes');
+
+        if (userId) {
+            query = query.eq('user_id', userId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (!data || data.length === 0) return '+00:00';
+
+        const totalMinutes = data.reduce((acc, curr) => acc + (curr.current_balance_minutes || 0), 0);
+
+        const sign = totalMinutes >= 0 ? '+' : '-';
+        const absMinutes = Math.abs(totalMinutes);
+        const hours = Math.floor(absMinutes / 60);
+        const mins = absMinutes % 60;
+
+        return `${sign}${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    },
+
     /**
      * Update status (Approve/Reject/Adjust)
      */

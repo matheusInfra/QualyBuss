@@ -178,5 +178,56 @@ export const timePolicyService = {
         }
 
         return total;
+    },
+
+    /**
+     * Helper: Calculate Night Shift Minutes (Adicional Noturno) 
+     * between 22:00 and 05:00 based on the worked intervals.
+     */
+    calculateNightShiftMinutes(entries) {
+        const sorted = [...entries].sort((a, b) => new Date(a.clock_in) - new Date(b.clock_in));
+        let totalNightMinutes = 0;
+        let lastEntry = null;
+
+        const getNightOverlapMs = (start, end) => {
+            // Check for each day the interval spans
+            let overlapMs = 0;
+            let currentDay = new Date(start);
+            currentDay.setHours(0, 0, 0, 0);
+
+            while (currentDay <= end) {
+                // Night shift is from 22:00 of currentDay to 05:00 of NEXT day
+                const nightStart = new Date(currentDay);
+                nightStart.setHours(22, 0, 0, 0);
+
+                const nightEnd = new Date(currentDay);
+                nightEnd.setDate(nightEnd.getDate() + 1);
+                nightEnd.setHours(5, 0, 0, 0);
+
+                // Overlap interval between [start, end] and [nightStart, nightEnd]
+                const overlapStart = new Date(Math.max(start, nightStart));
+                const overlapEnd = new Date(Math.min(end, nightEnd));
+
+                if (overlapEnd > overlapStart) {
+                    overlapMs += (overlapEnd - overlapStart);
+                }
+
+                currentDay.setDate(currentDay.getDate() + 1);
+            }
+            return overlapMs;
+        };
+
+        for (const entry of sorted) {
+            if (entry.type === 'ENTRY' || entry.type === 'BREAK_END') {
+                lastEntry = entry;
+            } else if ((entry.type === 'EXIT' || entry.type === 'BREAK_START') && lastEntry) {
+                const start = new Date(lastEntry.clock_in);
+                const end = new Date(entry.clock_in);
+                totalNightMinutes += Math.floor(getNightOverlapMs(start, end) / 1000 / 60);
+                lastEntry = null;
+            }
+        }
+
+        return totalNightMinutes;
     }
 };

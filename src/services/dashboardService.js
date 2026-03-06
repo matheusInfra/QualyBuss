@@ -147,30 +147,96 @@ export const dashboardService = {
     },
 
     async fetchComplianceMetrics() {
-        // 1. Total Active
-        const { count: totalActive } = await supabase
+        // 1. Fetch mandatory rules
+        const { data: rules } = await supabase
+            .from('compliance_rules')
+            .select('category, frequency, closing_day')
+            .eq('is_mandatory', true);
+
+        const mandatoryRules = rules || [];
+
+        // 2. Fetch Active Collaborators
+        const { data: activeCollabs } = await supabase
             .from('collaborators')
-            .select('id', { count: 'exact', head: true })
+            .select('id')
             .eq('active', true);
 
-        // 2. Collabs with at least one document
-        // Note: Supabase doesn't support 'distinct' count easily in one go without RPC or raw SQL.
-        // We'll fetch all document collaborator_ids (lightweight if we only sel ID) and Set() them.
+        const totalActive = activeCollabs?.length || 0;
+
+        if (totalActive === 0) {
+            return { complianceRate: 100, missingDocsCount: 0, totalActive: 0 };
+        }
+
+        if (mandatoryRules.length === 0) {
+            // No mandatory rules = Everyone is compliant
+            return { complianceRate: 100, missingDocsCount: 0, totalActive };
+        }
+
+        const activeIds = activeCollabs.map(c => c.id);
+
+        // 3. Fetch documents only for active collaborators and only categories that matter
         const { data: docs } = await supabase
             .from('collaborator_documents')
-            .select('collaborator_id');
+            .select('collaborator_id, category, reference_period')
+            .in('collaborator_id', activeIds)
+            .in('category', mandatoryRules.map(r => r.category));
 
-        const collabsWithDocs = new Set(docs?.map(d => d.collaborator_id)).size;
+        const today = new Date();
+        const reqYear = today.getFullYear();
+        const reqMonth = today.getMonth() + 1; // 1 to 12
 
-        // Compliance Rate (Simulated: Has at least 1 doc)
-        const safeTotal = totalActive || 1;
-        const complianceRate = Math.min(100, Math.round((collabsWithDocs / safeTotal) * 100));
-        const missingDocsCount = Math.max(0, totalActive - collabsWithDocs);
+        // 4. Group by collaborator
+        const collabsDocs = {};
+        (docs || []).forEach(doc => {
+            if (!collabsDocs[doc.collaborator_id]) {
+                collabsDocs[doc.collaborator_id] = [];
+            }
+            collabsDocs[doc.collaborator_id].push(doc);
+        });
+
+        // 5. Check compliance
+        let compliantCount = 0;
+        activeIds.forEach(id => {
+            const userDocs = collabsDocs[id] || [];
+
+            const isCompliant = mandatoryRules.every(rule => {
+                if (rule.frequency === 'UNIQUE') {
+                    // Just needs to exist
+                    return userDocs.some(d => d.category === rule.category);
+                } else if (rule.frequency === 'MONTHLY') {
+                    // Needs to match the expected period
+                    let expectedMonth = reqMonth - 1;
+                    let expectedYear = reqYear;
+                    if (expectedMonth === 0) {
+                        expectedMonth = 12;
+                        expectedYear--;
+                    }
+
+                    if (today.getDate() < (rule.closing_day || 31)) {
+                        expectedMonth--;
+                        if (expectedMonth === 0) {
+                            expectedMonth = 12;
+                            expectedYear--;
+                        }
+                    }
+                    const expectedPeriod = `${expectedYear}-${expectedMonth.toString().padStart(2, '0')}`;
+                    return userDocs.some(d => d.category === rule.category && d.reference_period === expectedPeriod);
+                }
+                return true;
+            });
+
+            if (isCompliant) {
+                compliantCount++;
+            }
+        });
+
+        const missingDocsCount = totalActive - compliantCount;
+        const complianceRate = Math.round((compliantCount / totalActive) * 100);
 
         return {
             complianceRate,
             missingDocsCount,
-            totalActive // Useful for charts
+            totalActive
         };
     },
 
@@ -198,16 +264,72 @@ export const dashboardService = {
         };
     },
 
+    async fetchPontoMetrics() {
+        // Obter datas do mês corrente e do dia de hoje para consultas  
+        const { startOfMonth, endOfMonth } = this._getDates();
+
+        // Formatar o "hoje" pro banco
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // Consulta 1: Conformidade do Mês atual (para calcular a Média Mensal de Assiduidade)
+        const { data: monthBalances, error: errMonth } = await supabase
+            .from('daily_balances')
+            .select('user_id, status, expected_minutes')
+            .gte('date', startOfMonth.split('T')[0])
+            .lte('date', endOfMonth.split('T')[0])
+            .gt('expected_minutes', 0); // Considerar apenas dias que a pessoa DEVERIA trabalhar
+
+        // Consulta 2: Posição específica de HOJE
+        const { data: todayBalances, error: errToday } = await supabase
+            .from('daily_balances')
+            .select('user_id, status')
+            .eq('date', todayStr)
+            .gt('expected_minutes', 0); // Só contar quem devia trabalhar hoje
+
+        let monthComplianceRate = 100; // Começa em 100, padrão
+
+        if (!errMonth && monthBalances && monthBalances.length > 0) {
+            const totalWorkDays = monthBalances.length;
+            // Dias de pontualidade ou banco extra (sem atrasos ou faltas não compensadas) => OK ou OVERTIME/CREDIT ou JUSTIFIED
+            // Qualquer status que seja DEBIT, INCOMPLETE ou ABSENCE é inconsistência e derruba o placar
+            const compliantDays = monthBalances.filter(b =>
+                b.status !== 'DEBIT' && b.status !== 'INCOMPLETE' && b.status !== 'ABSENCE'
+            ).length;
+            monthComplianceRate = Math.round((compliantDays / totalWorkDays) * 100);
+        }
+
+        let earlyDelaysOrAbsencesToday = 0;
+        let onTimeToday = 0;
+
+        if (!errToday && todayBalances) {
+            todayBalances.forEach(b => {
+                if (b.status === 'DEBIT' || b.status === 'INCOMPLETE' || b.status === 'ABSENCE') {
+                    earlyDelaysOrAbsencesToday++;
+                } else {
+                    onTimeToday++;
+                }
+            });
+        }
+
+        return {
+            pontoComplianceRate: monthComplianceRate,
+            pontoTodayDelays: earlyDelaysOrAbsencesToday,
+            pontoTodayOnTime: onTimeToday,
+            pontoTotalExpectedToday: (earlyDelaysOrAbsencesToday + onTimeToday)
+        };
+    },
+
     // --- Main Initial Fetcher ---
     async getKPIs() {
         try {
-            const [collab, occur, absence, move, comp, audit] = await Promise.all([
+            const [collab, occur, absence, move, comp, audit, ponto] = await Promise.all([
                 this.fetchCollaboratorMetrics(),
                 this.fetchOccurrenceMetrics(),
                 this.fetchAbsenceMetrics(),
                 this.fetchMovementMetrics(),
                 this.fetchComplianceMetrics(),
-                this.fetchAuditMetrics()
+                this.fetchAuditMetrics(),
+                this.fetchPontoMetrics()
             ]);
 
             return {
@@ -216,7 +338,8 @@ export const dashboardService = {
                 ...absence,
                 ...move,
                 ...comp,
-                ...audit
+                ...audit,
+                ...ponto
             };
 
         } catch (error) {

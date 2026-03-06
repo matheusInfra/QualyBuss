@@ -4,6 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import CompanyForm from './components/CompanyForm';
 import UserForm from './components/UserForm';
 import GeneralSettingsForm from './components/GeneralSettingsForm';
+import DepartmentForm from './components/DepartmentForm';
+import RoleForm from './components/RoleForm';
+import ComplianceForm from './components/ComplianceForm';
 import {
     CpuChipIcon,
     CheckCircleIcon,
@@ -16,7 +19,9 @@ import {
     AdjustmentsHorizontalIcon,
     PencilSquareIcon,
     PlusIcon,
-    UserCircleIcon
+    UserCircleIcon,
+    BriefcaseIcon,
+    ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 
 const Configuracoes = () => {
@@ -191,8 +196,11 @@ const Configuracoes = () => {
     // --- NAVEGAÇÃO INTERNA ---
     const TABS = [
         { id: 'EMPRESAS', label: 'Empresas', icon: BuildingOfficeIcon, desc: 'Cadastro de Lojas e Filiais', color: 'blue' },
+        { id: 'DEPARTAMENTOS', label: 'Departamentos', icon: BuildingOfficeIcon, desc: 'Organograma Oficial', color: 'indigo' },
+        { id: 'CARGOS', label: 'Cargos', icon: BriefcaseIcon, desc: 'Mapeamento de Funções', color: 'amber' },
+        { id: 'COMPLIANCE', label: 'Compliance', icon: ShieldCheckIcon, desc: 'Regras Documentais', color: 'emerald' },
         { id: 'USUARIOS', label: 'Usuários', icon: UsersIcon, desc: 'Acesso e Permissões', color: 'purple' },
-        { id: 'IA', label: 'Inteligência Artificial', icon: CpuChipIcon, desc: 'Configuração do Assistente', color: 'indigo' },
+        { id: 'IA', label: 'Inteligência Artificial', icon: CpuChipIcon, desc: 'Configuração do Assistente', color: 'emerald' },
         { id: 'GERAL', label: 'Configurações Gerais', icon: AdjustmentsHorizontalIcon, desc: 'Sistema e Aparência', color: 'slate' }
     ];
 
@@ -419,6 +427,27 @@ const Configuracoes = () => {
                                 />
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* 2.5 CONTEÚDO: DEPARTAMENTOS */}
+                {activeTab === 'DEPARTAMENTOS' && (
+                    <div className="p-8">
+                        <DepartmentForm />
+                    </div>
+                )}
+
+                {/* 2.6 CONTEÚDO: CARGOS */}
+                {activeTab === 'CARGOS' && (
+                    <div className="p-8">
+                        <RoleForm />
+                    </div>
+                )}
+
+                {/* 2.7 CONTEÚDO: COMPLIANCE */}
+                {activeTab === 'COMPLIANCE' && (
+                    <div className="p-8">
+                        <ComplianceForm />
                     </div>
                 )}
 

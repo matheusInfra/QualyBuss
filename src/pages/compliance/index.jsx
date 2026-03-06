@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { dashboardService } from '../../services/dashboardService';
 import { kpiService } from '../../services/kpiService';
+import 'leaflet/dist/leaflet.css';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/supabase';
 import {
@@ -37,8 +38,16 @@ const Compliance = () => {
 
     // 1. Fetch Stats (Score, Pending, etc.)
     const { data: stats, isLoading: loadingStats } = useQuery({
-        queryKey: ['complianceStats'],
-        queryFn: kpiService.getComplianceStats,
+        queryKey: ['complianceStatsOverall'],
+        queryFn: async () => {
+            const metrics = await dashboardService.fetchComplianceMetrics();
+            return {
+                complianceScore: metrics.complianceRate,
+                pendingSignatures: metrics.missingDocsCount,
+                activeAlerts: 0, // Mock for now or fetch elsewhere
+                verifiedLocations: metrics.totalActive // Mock map data
+            }
+        },
         refetchInterval: 30000, // Refresh every 30s
     });
 

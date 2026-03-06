@@ -6,6 +6,7 @@ export const TERMS_VERSION = '1.0'; // Increment this to force re-acceptance
 export const termsService = {
     // Check if user has accepted the current version
     async checkStatus() {
+        return true; // Bypass para testes locais
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return false;
 

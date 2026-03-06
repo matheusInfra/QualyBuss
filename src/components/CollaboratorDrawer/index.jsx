@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Select from 'react-select'; // IMPORT MODIFICADO (Estrito)
 import { cepService } from '../../services/cepService';
 import { collaboratorService } from '../../services/collaboratorService';
 import { useNotification } from '../../contexts/NotificationContext';
 import { validators } from '../../utils/validators';
 
+import { departmentService } from '../../services/departmentService'; // NEW
+import { roleService } from '../../services/roleService'; // NEW
 import { bankService } from '../../services/bankService';
 
 const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving }) => {
@@ -50,10 +53,54 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [bankList, setBankList] = useState([]);
 
+    // Lista unificada de Departamentos
+    const [departmentsList, setDepartmentsList] = useState([]);
+    // Lista unificada de Cargos
+    const [rolesList, setRolesList] = useState([]);
+
     // --- Style Constants (Matching Document Module) ---
     const LABEL_CLASS = "block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1";
     const INPUT_CLASS = (hasError) => `w-full px-3 py-2.5 bg-white border ${hasError ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'} text-slate-900 text-sm rounded-lg focus:ring-2 outline-none transition-all placeholder:text-slate-400 hover:border-slate-400`;
     const ERROR_MSG_CLASS = "text-xs text-red-500 mt-1 ml-1 font-medium animate-fade-in";
+
+    // --- React Select Custom Styles ---
+    const reactSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: '#ffffff',
+            borderColor: state.isFocused ? '#3b82f6' : '#cbd5e1', // blue-500 / slate-300
+            borderRadius: '0.5rem',
+            padding: '2px',
+            minHeight: '42px',
+            boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none',
+            '&:hover': { borderColor: '#94a3b8' } // slate-400
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused ? '#f1f5f9' : 'transparent', // slate-100
+            color: state.isFocused ? '#1e293b' : '#334155',
+            fontSize: '0.875rem',
+            padding: '10px 12px',
+            cursor: 'pointer'
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: '#94a3b8', // slate-400
+            fontSize: '0.875rem'
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: '#0f172a', // slate-900
+            fontSize: '0.875rem'
+        }),
+        menu: (base) => ({
+            ...base,
+            borderRadius: '0.5rem',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0', // slate-200
+            zIndex: 50
+        })
+    };
 
     // --------------------------------------------------
 
@@ -180,8 +227,15 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                 setIsLoadingDetails(false);
             }
 
-            // Load Banks
+            // Load Banks, Departments & Roles
             bankService.getBanks().then(setBankList);
+            departmentService.getDepartments().then(depts => {
+                // Monta para o React Select as opções vindas da tabela oficial
+                setDepartmentsList(depts.map(d => ({ value: d.name, label: d.name })));
+            });
+            roleService.getRoles().then(roles => {
+                setRolesList(roles.map(r => ({ value: r.name, label: r.name })));
+            });
         }
     }, [isOpen, collaborator]); // collaborator aqui é o objeto parcial vindo da lista
 
@@ -407,7 +461,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 </div>
                                                 <div className="col-span-6 md:col-span-4">
                                                     <label className={LABEL_CLASS}>Rua</label>
-                                                    <input name="address_street" value={formData.address_street || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly placeholder="Preenchimento automático" />
+                                                    <input name="address_street" value={formData.address_street || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Nome da rua" />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Número</label>
@@ -415,11 +469,11 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Cidade</label>
-                                                    <input name="address_city" value={formData.address_city || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly />
+                                                    <input name="address_city" value={formData.address_city || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Nome da cidade" />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Estado</label>
-                                                    <input name="address_state" value={formData.address_state || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly placeholder="UF" maxLength={2} />
+                                                    <input name="address_state" value={formData.address_state || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="UF" maxLength={2} />
                                                 </div>
                                             </div>
                                         </section>
@@ -462,11 +516,31 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 )}
                                                 <div>
                                                     <label className={LABEL_CLASS}>Departamento</label>
-                                                    <input name="department" value={formData.department || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Ex: Engenharia" />
+                                                    <Select
+                                                        isClearable
+                                                        options={departmentsList}
+                                                        value={formData.department ? { value: formData.department, label: formData.department } : null}
+                                                        onChange={(newValue) => handleChange({ target: { name: 'department', value: newValue ? newValue.value : '' } })}
+                                                        placeholder="Selecione..."
+                                                        noOptionsMessage={() => "Nenhum setor cadastrado"}
+                                                        styles={reactSelectStyles}
+                                                        className="react-select-container"
+                                                        classNamePrefix="react-select"
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Cargo <span className="text-red-500">*</span></label>
-                                                    <input name="role" value={formData.role || ''} onChange={handleChange} className={INPUT_CLASS()} required placeholder="Ex: Senior Developer" />
+                                                    <Select
+                                                        isClearable
+                                                        options={rolesList}
+                                                        value={formData.role ? { value: formData.role, label: formData.role } : null}
+                                                        onChange={(newValue) => handleChange({ target: { name: 'role', value: newValue ? newValue.value : '' } })}
+                                                        placeholder="Selecione o cargo oficial..."
+                                                        noOptionsMessage={() => "Nenhum cargo cadastrado"}
+                                                        styles={reactSelectStyles}
+                                                        className="react-select-container"
+                                                        classNamePrefix="react-select"
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Data de Admissão</label>

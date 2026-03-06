@@ -1,23 +1,29 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import LandingPage from '../pages/LandingPage';
-import Login from '../pages/login';
-import ForgotPassword from '../pages/login/ForgotPassword';
-import TermsOfUse from '../pages/legal/TermsOfUse';
-import PrivacyPolicy from '../pages/legal/PrivacyPolicy';
+
+// Eager load componentes críticos (crédito inicial rápido)
 import Layout from '../components/Layout';
+import Login from '../pages/login';
 import Dashboard from '../pages/Dashboard';
-import Colaboradores from '../pages/colaboradores';
-import Documentacao from '../pages/documentacao';
-import Importacao from '../pages/importacao';
-import Ferias from '../pages/ferias';
-import Movimentacoes from '../pages/movimentacoes';
-import Ausencias from '../pages/ausencias';
-import Configuracoes from '../pages/configuracoes';
-import Auditoria from '../pages/auditoria';
-import Ocorrencias from '../pages/ocorrencias';
-import Compliance from '../pages/compliance';
-import GestaoPonto from '../pages/ponto';
+
+// Lazy load para módulos internos (Code Splitting)
+const LandingPage = lazy(() => import('../pages/LandingPage'));
+const ForgotPassword = lazy(() => import('../pages/login/ForgotPassword'));
+const TermsOfUse = lazy(() => import('../pages/legal/TermsOfUse'));
+const PrivacyPolicy = lazy(() => import('../pages/legal/PrivacyPolicy'));
+const Colaboradores = lazy(() => import('../pages/colaboradores'));
+const Documentacao = lazy(() => import('../pages/documentacao'));
+const Importacao = lazy(() => import('../pages/importacao'));
+const Ferias = lazy(() => import('../pages/ferias'));
+const Movimentacoes = lazy(() => import('../pages/movimentacoes'));
+const Ausencias = lazy(() => import('../pages/ausencias'));
+const Configuracoes = lazy(() => import('../pages/configuracoes'));
+const Auditoria = lazy(() => import('../pages/auditoria'));
+const Ocorrencias = lazy(() => import('../pages/ocorrencias'));
+const Compliance = lazy(() => import('../pages/compliance'));
+const GestaoPonto = lazy(() => import('../pages/ponto'));
+const SalariosDashboard = lazy(() => import('../pages/salarios'));
 
 const PrivateRoute = ({ children }) => {
   const { user } = useAuth();
@@ -27,33 +33,43 @@ const PrivateRoute = ({ children }) => {
 export function AppRoutes() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/terms" element={<TermsOfUse />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Suspense fallback={
+        <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+          <div className="flex flex-col items-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent mb-4"></div>
+            <p className="text-slate-500 font-medium">Carregando módulo...</p>
+          </div>
+        </div>
+      }>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
-        {/* Private Routes */}
-        <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/colaboradores" element={<Colaboradores />} />
-          <Route path="/ferias" element={<Ferias />} />
-          <Route path="/movimentacoes" element={<Movimentacoes />} />
-          <Route path="/ausencias" element={<Ausencias />} />
-          <Route path="/auditoria" element={<Auditoria />} />
-          <Route path="/ocorrencias" element={<Ocorrencias />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
-          <Route path="/documentacao" element={<Documentacao />} />
-          <Route path="/importacao" element={<Importacao />} />
-          <Route path="/compliance" element={<Compliance />} />
-          <Route path="/ponto" element={<GestaoPonto />} />
-        </Route>
+          {/* Private Routes */}
+          <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/colaboradores" element={<Colaboradores />} />
+            <Route path="/ferias" element={<Ferias />} />
+            <Route path="/movimentacoes" element={<Movimentacoes />} />
+            <Route path="/ausencias" element={<Ausencias />} />
+            <Route path="/auditoria" element={<Auditoria />} />
+            <Route path="/ocorrencias" element={<Ocorrencias />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="/documentacao" element={<Documentacao />} />
+            <Route path="/importacao" element={<Importacao />} />
+            <Route path="/compliance" element={<Compliance />} />
+            <Route path="/ponto" element={<GestaoPonto />} />
+            <Route path="/salarios" element={<SalariosDashboard />} />
+          </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
