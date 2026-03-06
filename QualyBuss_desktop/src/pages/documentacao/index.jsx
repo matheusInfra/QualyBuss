@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collaboratorService } from '../../services/collaboratorService';
 import { documentService } from '../../services/documentService';
 import CollaboratorCard from '../../components/CollaboratorCard';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import JSZip from 'jszip';
+import { ShieldCheckIcon, CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { complianceService } from '../../services/complianceService';
 
 const Documentacao = () => {
     const { notify } = useNotification();
@@ -177,6 +179,9 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
     const [loadingDocs, setLoadingDocs] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [category, setCategory] = useState('');
+    const [expirationDate, setExpirationDate] = useState(''); // NEW STATE
+    const [referencePeriod, setReferencePeriod] = useState(''); // NEW STATE
+    const [rules, setRules] = useState([]); // NEW STATE
 
     // Filters State
     const [filterCategory, setFilterCategory] = useState('');
@@ -192,7 +197,17 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
     // Initial Load
     useEffect(() => {
         loadDocuments();
+        loadRules();
     }, [collaborator.id]);
+
+    const loadRules = async () => {
+        try {
+            const data = await complianceService.getRules();
+            setRules(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const loadDocuments = async () => {
         try {
@@ -239,7 +254,10 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
 
         setUploading(true);
         try {
-            await documentService.uploadDocument(file, collaborator.id, category);
+            await documentService.uploadDocument(file, collaborator.id, category, null, {
+                expirationDate: expirationDate || null,
+                referencePeriod: referencePeriod || null
+            });
             notify.success('Sucesso', 'Documento enviado com sucesso!');
             await loadDocuments(); // Reload list
         } catch (error) {
@@ -247,6 +265,8 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
             notify.error('Erro', 'Falha ao enviar documento.');
         } finally {
             setUploading(false);
+            setExpirationDate(''); // Reset new state
+            setReferencePeriod('');
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
@@ -380,6 +400,95 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
                 </div>
             </div>
 
+            {/* Card de Saúde Documental (Compliance) */}
+            {rules.length > 0 && (
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+                        <ShieldCheckIcon className="w-5 h-5 text-emerald-500" />
+                        Status de Compliance (Documentos Obrigatórios)
+                    </h3>
+
+                    {/* FIXOS */}
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 mt-4">Documentos Fixos</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                        {rules.filter(r => r.is_mandatory && r.frequency === 'UNIQUE').length === 0 ? (
+                            <p className="text-xs text-slate-500 col-span-full font-medium">Nenhuma regra estatíca obrigatória.</p>
+                        ) : (
+                            rules.filter(r => r.is_mandatory && r.frequency === 'UNIQUE').map(rule => {
+                                const hasDoc = documents.some(d => d.category === rule.category);
+                                return (
+                                    <div key={rule.id} className={`p-3 rounded-xl border flex flex-col gap-1 ${hasDoc ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                                        <div className="flex items-center gap-2">
+                                            {hasDoc ? (
+                                                <CheckCircleIcon className="w-5 h-5 text-emerald-500" />
+                                            ) : (
+                                                <ExclamationCircleIcon className="w-5 h-5 text-red-500" />
+                                            )}
+                                            <span className={`text-xs font-bold ${hasDoc ? 'text-emerald-700' : 'text-red-700'}`}>{rule.category}</span>
+                                        </div>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${hasDoc ? 'text-emerald-500' : 'text-red-500'}`}>
+                                            {hasDoc ? 'Regular' : 'Pendente'}
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    {/* MENSAIS */}
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 mt-4 border-t border-slate-100 pt-4">Recorrentes (Mês de Referência)</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {rules.filter(r => r.is_mandatory && r.frequency === 'MONTHLY').length === 0 ? (
+                            <p className="text-xs text-slate-500 col-span-full font-medium">Nenhuma regra mensal definida.</p>
+                        ) : (
+                            rules.filter(r => r.is_mandatory && r.frequency === 'MONTHLY').map(rule => {
+                                const today = new Date();
+                                let reqYear = today.getFullYear();
+                                let reqMonth = today.getMonth() + 1; // 1 to 12
+
+                                let expectedMonth = reqMonth - 1; // last month
+                                let expectedYear = reqYear;
+                                if (expectedMonth === 0) {
+                                    expectedMonth = 12;
+                                    expectedYear--;
+                                }
+
+                                if (today.getDate() < (rule.closing_day || 31)) {
+                                    expectedMonth--;
+                                    if (expectedMonth === 0) {
+                                        expectedMonth = 12;
+                                        expectedYear--;
+                                    }
+                                }
+
+                                const expectedPeriod = `${expectedYear}-${expectedMonth.toString().padStart(2, '0')}`;
+
+                                const hasDoc = documents.some(d => d.category === rule.category && d.reference_period === expectedPeriod);
+
+                                return (
+                                    <div key={rule.id} className={`p-3 rounded-xl border flex flex-col gap-1 ${hasDoc ? 'bg-indigo-50 border-indigo-100' : 'bg-red-50 border-red-100'}`}>
+                                        <div className="flex items-center gap-2">
+                                            {hasDoc ? (
+                                                <CheckCircleIcon className="w-5 h-5 text-indigo-500" />
+                                            ) : (
+                                                <ExclamationCircleIcon className="w-5 h-5 text-red-500" />
+                                            )}
+                                            <span className={`text-xs font-bold ${hasDoc ? 'text-indigo-700' : 'text-red-700'}`}>{rule.category}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center mt-1">
+                                            <span className={`text-[10px] uppercase font-bold tracking-wider ${hasDoc ? 'text-indigo-500' : 'text-red-500'}`}>
+                                                {hasDoc ? `${expectedPeriod}` : `Pendente: ${expectedPeriod}`}
+                                            </span>
+                                            <span className="text-[9px] text-slate-400 font-bold bg-white px-1.5 py-0.5 rounded shadow-sm border border-slate-100">Vence dia {rule.closing_day}</span>
+                                        </div>
+                                    </div>
+                                )
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                 {/* UPload Column */}
@@ -396,25 +505,57 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
                                     }`}
                             >
                                 <option value="">Selecione uma categoria...</option>
-                                <option value="Contrato">Contrato</option>
-                                <option value="Documentos Pessoais">Documentos Pessoais</option>
-                                <option value="Holerite">Holerite</option>
-                                <option value="Folha de Ponto">Folha de Ponto</option>
-                                <option value="Comprovante Bancário">Comprovante Bancário</option>
-                                <option value="Currículo">Currículo</option>
-                                <option value="Outros">Outros</option>
+                                {rules.map(r => (
+                                    <option key={r.id} value={r.category}>{r.category} {r.is_mandatory ? '*' : ''}</option>
+                                ))}
                             </select>
                             {!category && (
                                 <p className="text-xs text-amber-600 mt-1 font-medium">Selecione para habilitar o envio.</p>
                             )}
                         </div>
 
+                        {/* Dynamic Field: Expiration vs Reference Date */}
+                        {(() => {
+                            const selectedRule = rules.find(r => r.category === category);
+                            const isMonthly = selectedRule?.frequency === 'MONTHLY';
+
+                            return isMonthly ? (
+                                <div className="mb-4">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mês de Referência <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="month"
+                                        value={referencePeriod}
+                                        onChange={(e) => setReferencePeriod(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                        required
+                                    />
+                                    <p className="text-[10px] text-slate-400 mt-1">Refere-se a qual mês de folha/ponto? (Ano-Mês)</p>
+                                </div>
+                            ) : (
+                                <div className="mb-4">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data de Validade <span className="text-slate-400 font-normal">(Opcional)</span></label>
+                                    <input
+                                        type="date"
+                                        value={expirationDate}
+                                        onChange={(e) => setExpirationDate(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                        placeholder="Não expira"
+                                    />
+                                    <p className="text-[10px] text-slate-400 mt-1">Útil para CNH, ASO e Exames periódicos.</p>
+                                </div>
+                            );
+                        })()}
+
                         <div
-                            className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all group relative ${!category
+                            className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all group relative ${(!category || (rules.find(r => r.category === category)?.frequency === 'MONTHLY' && !referencePeriod))
                                 ? 'border-slate-200 bg-slate-50 cursor-not-allowed grayscale opacity-60'
                                 : 'border-slate-300 cursor-pointer hover:bg-slate-50 hover:border-blue-400'
                                 }`}
-                            onClick={() => category && fileInputRef.current?.click()}
+                            onClick={() => {
+                                const selectedRule = rules.find(r => r.category === category);
+                                const canUpload = category && (selectedRule?.frequency !== 'MONTHLY' || referencePeriod);
+                                if (canUpload) fileInputRef.current?.click()
+                            }}
                         >
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-transform ${!category ? 'bg-slate-200 text-slate-400' : 'bg-blue-50 text-blue-500 group-hover:scale-110'
                                 }`}>
@@ -460,13 +601,9 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
                                     className="block w-32 px-2 py-1.5 text-sm border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
                                 >
                                     <option value="">Todas</option>
-                                    <option value="Contrato">Contrato</option>
-                                    <option value="Documentos Pessoais">Doc. Pessoais</option>
-                                    <option value="Holerite">Holerite</option>
-                                    <option value="Folha de Ponto">Folha de Ponto</option>
-                                    <option value="Comprovante Bancário">Comprovante Bancário</option>
-                                    <option value="Currículo">Currículo</option>
-                                    <option value="Outros">Outros</option>
+                                    {rules.map(r => (
+                                        <option key={r.id} value={r.category}>{r.category}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div>
@@ -599,6 +736,15 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
                                                             <span>{formatBytes(doc.size_bytes)}</span>
                                                             <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                                                             <span>{formatDate(doc.created_at)}</span>
+                                                            {doc.expiration_date && (
+                                                                <>
+                                                                    <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                                                    <span className={`font-bold ${new Date(doc.expiration_date) < new Date() ? 'text-red-500 line-through' : 'text-amber-600'}`}>
+                                                                        Validade: {formatDate(doc.expiration_date)}
+                                                                        {new Date(doc.expiration_date) < new Date() && ' (Vencido)'}
+                                                                    </span>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
 

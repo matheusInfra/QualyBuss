@@ -44,6 +44,28 @@ export const movementService = {
 
     // Update status (e.g., Approve, Complete)
     async updateStatus(id, status, approverId = null) {
+
+        // Fase 4: Se o status for COMPLETED, devemos chamar a RPC de finalização real
+        if (status === 'COMPLETED') {
+            const { data, error } = await supabase.rpc('finalize_job_movement', {
+                p_movement_id: id,
+                p_approver_id: approverId
+            });
+
+            if (error) {
+                console.error("RPC Error na Efetivação:", error);
+                throw error;
+            }
+
+            if (data && data.success === false) {
+                console.error("Erro interno do SGDB:", data.error);
+                throw new Error(data.error);
+            }
+
+            return data;
+        }
+
+        // Fluxo normal para outros status (PENDING_APPROVAL, APPROVED, REJECTED)
         const payload = { status };
         if (approverId) payload.approver_id = approverId;
 

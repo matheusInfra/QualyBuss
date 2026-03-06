@@ -76,5 +76,6 @@ export const leaveService = {
             // Fallback default
             return { total: 30, available: 0, taken: 0 };
         }
+
     }
 };

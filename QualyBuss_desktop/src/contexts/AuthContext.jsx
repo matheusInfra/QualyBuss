@@ -12,15 +12,16 @@ export const AuthProvider = ({ children }) => {
     // Check active session on load
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
-        console.warn("Session error detected, forcing sign out:", error.message);
+        console.warn("Session error detected:", error.message);
         signOut();
       } else {
         setUser(session?.user ?? null);
+        if (session) registerSession(session);
       }
       setLoading(false);
     }).catch(err => {
       console.error("Unexpected auth error:", err);
-      signOut();
+      // signOut();
       setLoading(false);
     });
 
@@ -28,32 +29,88 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session) registerSession(session);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // --- Single Device Enforcement ---
+  const registerSession = async (session) => {
+    if (!session?.user?.id) return;
+
+    const sessionToken = session.access_token;
+
+    // 1. Register this session as THE active one
+    const { error } = await supabase
+      .from('user_active_sessions')
+      .upsert({
+        user_id: session.user.id,
+        session_id: sessionToken,
+        device_info: 'Desktop Web',
+        last_seen: new Date().toISOString()
+      });
+
+    if (error) console.error("Failed to register session:", error);
+
+    // 2. Listen for kicks - Filter adjusted for robust delivery (same logic applied on mobile)
+    const channel = supabase.channel(`session_guard_${session.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_active_sessions',
+        },
+        (payload) => {
+          // Verify if the event corresponds to the current user
+          if (payload.new.user_id !== session.user.id) return;
+
+          const remoteSessionId = payload.new.session_id;
+          if (remoteSessionId && remoteSessionId !== sessionToken) {
+            console.warn("Session invalidated by another device:", payload.new.device_info);
+            alert(`Sua conta foi conectada em outro dispositivo (${payload.new.device_info}). Esta sessão será encerrada.`);
+            signOut();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  };
 
   // --- Auto-Logout Logic (15 min) ---
   useEffect(() => {
     if (!user) return; // Only track if logged in
 
     const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
-    // const TIMEOUT_MS = 10 * 1000; // Debug: 10 seconds
     let activityTimer;
+
+    const logout = () => {
+      console.warn('Auto-logout triggered due to inactivity.');
+      signOut();
+    };
 
     const resetTimer = () => {
       if (activityTimer) clearTimeout(activityTimer);
-      activityTimer = setTimeout(() => {
-        console.warn('Auto-logout triggered due to inactivity.');
-        signOut();
-      }, TIMEOUT_MS);
+      activityTimer = setTimeout(logout, TIMEOUT_MS);
+    };
+
+    // Throttle the event listeners to avoid performance issues
+    let throttleTimer;
+    const handleActivity = () => {
+      if (throttleTimer) return;
+      throttleTimer = setTimeout(() => {
+        resetTimer();
+        throttleTimer = null;
+      }, 1000); // 1-second throttle
     };
 
     // Events to track activity
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
 
     // Attach listeners
-    events.forEach(event => window.addEventListener(event, resetTimer));
+    events.forEach(event => window.addEventListener(event, handleActivity));
 
     // Start timer initially
     resetTimer();
@@ -61,7 +118,8 @@ export const AuthProvider = ({ children }) => {
     // Cleanup
     return () => {
       if (activityTimer) clearTimeout(activityTimer);
-      events.forEach(event => window.removeEventListener(event, resetTimer));
+      if (throttleTimer) clearTimeout(throttleTimer);
+      events.forEach(event => window.removeEventListener(event, handleActivity));
     };
   }, [user]); // Re-bind when user changes (login/logout)
 

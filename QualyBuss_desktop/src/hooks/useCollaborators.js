@@ -31,8 +31,14 @@ export const useCollaboratorMutations = () => {
         onSuccess: invalidateCollaborators,
     });
 
+    const createCollaboratorBatch = useMutation({
+        mutationFn: (dataArray) => collaboratorService.createBatch(dataArray),
+        onSuccess: invalidateCollaborators,
+    });
+
     return {
         createCollaborator,
+        createCollaboratorBatch,
         updateCollaborator,
         toggleStatus,
     };

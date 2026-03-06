@@ -20,6 +20,23 @@ export const collaboratorService = {
         return data || [];
     },
 
+    // Buscar departamentos únicos
+    async getUniqueDepartments() {
+        // Obter todos os departamentos diferentes vazios
+        const { data, error } = await supabase
+            .from('collaborators')
+            .select('department');
+
+        if (error) {
+            console.error('Erro ao buscar departamentos', error);
+            return [];
+        }
+
+        // Mapear, remover nulos e vazios, e criar lista única e ordenada
+        const deptNames = data.map(c => c.department).filter(d => Boolean(d));
+        return [...new Set(deptNames)].sort();
+    },
+
     // Buscar com Paginação e Filtros
     async getPaginated({ page = 1, limit = 30, status = 'active', searchTerm = '' }) {
         const from = (page - 1) * limit;
@@ -87,6 +104,26 @@ export const collaboratorService = {
             .single();
 
         if (error) throw error;
+        return data;
+    },
+
+    // Inserção em Lote (Batch Insert para Importação)
+    async createBatch(collaboratorsArray) {
+        if (!collaboratorsArray || collaboratorsArray.length === 0) return [];
+
+        // Formatar payload massivo
+        const massPayload = collaboratorsArray.map(collab => formatPayload(collab));
+
+        const { data, error } = await supabase
+            .from('collaborators')
+            .insert(massPayload)
+            .select();
+
+        if (error) {
+            console.error('Erro no Batch Insert:', error);
+            throw error;
+        }
+
         return data;
     },
 

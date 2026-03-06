@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Select from 'react-select'; // IMPORT MODIFICADO (Estrito)
 import { cepService } from '../../services/cepService';
 import { collaboratorService } from '../../services/collaboratorService';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { validators } from '../../utils/validators';
 
+import { departmentService } from '../../services/departmentService'; // NEW
+import { roleService } from '../../services/roleService'; // NEW
 import { bankService } from '../../services/bankService';
 
 const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving }) => {
@@ -35,7 +38,11 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
         bank_agency: '',
         bank_account: '',
         pix_key: '',
-        password: '' // Campo auxiliar para criação de usuário
+
+        password: '', // Campo auxiliar para criação de usuário
+        weekly_hours: 44,
+        lunch_info: { type: 'VARIABLE', duration_minutes: 60 },
+        work_schedule: { days: ['MON', 'TUE', 'WED', 'THU', 'FRI'], shifts: [{ start: '08:00', end: '18:00' }] }
     });
     const [errors, setErrors] = useState({});
     const [avatarFile, setAvatarFile] = useState(null);
@@ -46,10 +53,54 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [bankList, setBankList] = useState([]);
 
+    // Lista unificada de Departamentos
+    const [departmentsList, setDepartmentsList] = useState([]);
+    // Lista unificada de Cargos
+    const [rolesList, setRolesList] = useState([]);
+
     // --- Style Constants (Matching Document Module) ---
     const LABEL_CLASS = "block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1";
     const INPUT_CLASS = (hasError) => `w-full px-3 py-2.5 bg-white border ${hasError ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'} text-slate-900 text-sm rounded-lg focus:ring-2 outline-none transition-all placeholder:text-slate-400 hover:border-slate-400`;
     const ERROR_MSG_CLASS = "text-xs text-red-500 mt-1 ml-1 font-medium animate-fade-in";
+
+    // --- React Select Custom Styles ---
+    const reactSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: '#ffffff',
+            borderColor: state.isFocused ? '#3b82f6' : '#cbd5e1', // blue-500 / slate-300
+            borderRadius: '0.5rem',
+            padding: '2px',
+            minHeight: '42px',
+            boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none',
+            '&:hover': { borderColor: '#94a3b8' } // slate-400
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused ? '#f1f5f9' : 'transparent', // slate-100
+            color: state.isFocused ? '#1e293b' : '#334155',
+            fontSize: '0.875rem',
+            padding: '10px 12px',
+            cursor: 'pointer'
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: '#94a3b8', // slate-400
+            fontSize: '0.875rem'
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: '#0f172a', // slate-900
+            fontSize: '0.875rem'
+        }),
+        menu: (base) => ({
+            ...base,
+            borderRadius: '0.5rem',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0', // slate-200
+            zIndex: 50
+        })
+    };
 
     // --------------------------------------------------
 
@@ -123,7 +174,24 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                     try {
                         const fullData = await collaboratorService.getById(collaborator.id);
                         if (fullData) {
-                            setFormData(fullData);
+                            // Extract Lunch Info from nested work_schedule if available (Migration/Compatibility)
+                            let mergedData = { ...fullData };
+                            if (fullData.work_schedule?.lunch) {
+                                mergedData.lunch_info = fullData.work_schedule.lunch;
+                            } else if (!mergedData.lunch_info) {
+                                // Default if missing
+                                mergedData.lunch_info = { type: 'VARIABLE', duration_minutes: 60 };
+                            }
+
+                            // Initialize default schedule shifts if missing
+                            if (!mergedData.work_schedule?.shifts?.length) {
+                                mergedData.work_schedule = {
+                                    ...mergedData.work_schedule,
+                                    shifts: [{ start: '08:00', end: '18:00' }]
+                                };
+                            }
+
+                            setFormData(mergedData);
                             setPreviewUrl(fullData.avatar_url || null);
                         } else {
                             // Fallback se falhar (não deveria acontecer)
@@ -147,14 +215,27 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                     address_street: '', address_number: '', address_city: '', address_state: '', address_zip_code: '',
                     role: '', cbo: '', department: '', admission_date: '', corporate_email: '', pis: '',
                     contract_type: 'CLT', work_regime: 'Presencial', salary: '',
-                    bank_name: '', bank_agency: '', bank_account: '', pix_key: ''
+                    bank_name: '', bank_agency: '', bank_account: '', pix_key: '',
+                    weekly_hours: 44,
+                    lunch_info: { type: 'VARIABLE', duration_minutes: 60 },
+                    work_schedule: {
+                        days: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+                        shifts: [{ start: '08:00', end: '18:00' }]
+                    }
                 });
                 setPreviewUrl(null);
                 setIsLoadingDetails(false);
             }
 
-            // Load Banks
+            // Load Banks, Departments & Roles
             bankService.getBanks().then(setBankList);
+            departmentService.getDepartments().then(depts => {
+                // Monta para o React Select as opções vindas da tabela oficial
+                setDepartmentsList(depts.map(d => ({ value: d.name, label: d.name })));
+            });
+            roleService.getRoles().then(roles => {
+                setRolesList(roles.map(r => ({ value: r.name, label: r.name })));
+            });
         }
     }, [isOpen, collaborator]); // collaborator aqui é o objeto parcial vindo da lista
 
@@ -189,8 +270,23 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
             return;
         }
 
-        // Vacation Logic for New Hires
+        // Prepare Data
         let finalData = { ...formData };
+
+        // MERGE LUNCH INFO INTO WORK_SCHEDULE (JSONB)
+        // This ensures the schedule logic is self-contained in one DB column
+        finalData.work_schedule = {
+            ...finalData.work_schedule,
+            lunch: finalData.lunch_info,
+            settings: {
+                entry_tolerance_minutes: 10 // Enterprise Standard
+            }
+        };
+        // Remove auxiliary UI field
+        delete finalData.lunch_info;
+
+
+        // Vacation Logic for New Hires
         if (!collaborator && formData.isNewHire) {
             const admission = formData.admission_date ? new Date(formData.admission_date) : new Date();
             const vestingEnd = new Date(admission);
@@ -243,7 +339,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                         {/* Tabs */}
                         <div className="bg-white border-b border-slate-200 px-8 sticky top-0 z-10 shadow-sm">
                             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                                {['pessoal', 'profissional', 'contratual', 'historico'].map((tab) => (
+                                {['pessoal', 'profissional', 'contratual', 'jornada', 'historico'].map((tab) => (
                                     <button
                                         key={tab}
                                         type="button"
@@ -365,7 +461,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 </div>
                                                 <div className="col-span-6 md:col-span-4">
                                                     <label className={LABEL_CLASS}>Rua</label>
-                                                    <input name="address_street" value={formData.address_street || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly placeholder="Preenchimento automático" />
+                                                    <input name="address_street" value={formData.address_street || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Nome da rua" />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Número</label>
@@ -373,11 +469,11 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Cidade</label>
-                                                    <input name="address_city" value={formData.address_city || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly />
+                                                    <input name="address_city" value={formData.address_city || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Nome da cidade" />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2">
                                                     <label className={LABEL_CLASS}>Estado</label>
-                                                    <input name="address_state" value={formData.address_state || ''} onChange={handleChange} className={`${INPUT_CLASS()} bg-slate-50 text-slate-500`} readOnly placeholder="UF" maxLength={2} />
+                                                    <input name="address_state" value={formData.address_state || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="UF" maxLength={2} />
                                                 </div>
                                             </div>
                                         </section>
@@ -420,11 +516,31 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 )}
                                                 <div>
                                                     <label className={LABEL_CLASS}>Departamento</label>
-                                                    <input name="department" value={formData.department || ''} onChange={handleChange} className={INPUT_CLASS()} placeholder="Ex: Engenharia" />
+                                                    <Select
+                                                        isClearable
+                                                        options={departmentsList}
+                                                        value={formData.department ? { value: formData.department, label: formData.department } : null}
+                                                        onChange={(newValue) => handleChange({ target: { name: 'department', value: newValue ? newValue.value : '' } })}
+                                                        placeholder="Selecione..."
+                                                        noOptionsMessage={() => "Nenhum setor cadastrado"}
+                                                        styles={reactSelectStyles}
+                                                        className="react-select-container"
+                                                        classNamePrefix="react-select"
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Cargo <span className="text-red-500">*</span></label>
-                                                    <input name="role" value={formData.role || ''} onChange={handleChange} className={INPUT_CLASS()} required placeholder="Ex: Senior Developer" />
+                                                    <Select
+                                                        isClearable
+                                                        options={rolesList}
+                                                        value={formData.role ? { value: formData.role, label: formData.role } : null}
+                                                        onChange={(newValue) => handleChange({ target: { name: 'role', value: newValue ? newValue.value : '' } })}
+                                                        placeholder="Selecione o cargo oficial..."
+                                                        noOptionsMessage={() => "Nenhum cargo cadastrado"}
+                                                        styles={reactSelectStyles}
+                                                        className="react-select-container"
+                                                        classNamePrefix="react-select"
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className={LABEL_CLASS}>Data de Admissão</label>
@@ -581,6 +697,255 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                                                 </div>
                                             </div>
                                         </section>
+                                    </div>
+                                )}
+
+                                {/* Tab: JORNADA (Time Policies) - REDESIGNED */}
+                                {activeTab === 'jornada' && (
+                                    <div className="animate-fade-in space-y-6">
+                                        <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                            <div className="flex items-center justify-between mb-6">
+                                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                    Configuração de Escala
+                                                </h3>
+                                                <div className="bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+                                                    <span className="text-[10px] font-bold text-indigo-700 uppercase">
+                                                        Motor de Cálculo Ativo
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Grid Principal de Horarios */}
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+                                                {/* Coluna Esquerda: Definição de Horários */}
+                                                <div className="space-y-6">
+                                                    <div>
+                                                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
+                                                            <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                            Horários Principais
+                                                        </label>
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div>
+                                                                <label className={LABEL_CLASS}>Entrada (Shift Start)</label>
+                                                                <input
+                                                                    type="time"
+                                                                    value={formData.work_schedule?.shifts?.[0]?.start || '08:00'}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            work_schedule: {
+                                                                                ...prev.work_schedule,
+                                                                                shifts: [{ ...prev.work_schedule?.shifts?.[0], start: val }]
+                                                                            }
+                                                                        }));
+                                                                    }}
+                                                                    className={INPUT_CLASS() + " font-mono text-center tracking-widest bg-slate-50 border-slate-300 focus:border-indigo-500"}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className={LABEL_CLASS}>Saída (Shift End)</label>
+                                                                <input
+                                                                    type="time"
+                                                                    value={formData.work_schedule?.shifts?.[0]?.end || '18:00'}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            work_schedule: {
+                                                                                ...prev.work_schedule,
+                                                                                shifts: [{ ...prev.work_schedule?.shifts?.[0], end: val }]
+                                                                            }
+                                                                        }));
+                                                                    }}
+                                                                    className={INPUT_CLASS() + " font-mono text-center tracking-widest bg-slate-50 border-slate-300 focus:border-indigo-500"}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="pt-4 border-t border-slate-100">
+                                                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
+                                                            <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                                                            Regra de Intervalo (Almoço)
+                                                        </label>
+
+                                                        {/* Seletor de Tipo */}
+                                                        <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
+                                                            {['VARIABLE', 'FIXED'].map((type) => (
+                                                                <button
+                                                                    key={type}
+                                                                    type="button"
+                                                                    onClick={() => setFormData(prev => ({ ...prev, lunch_info: { ...prev.lunch_info, type } }))}
+                                                                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${formData.lunch_info?.type === type
+                                                                        ? 'bg-white text-orange-600 shadow-sm'
+                                                                        : 'text-slate-500 hover:text-slate-700'
+                                                                        }`}
+                                                                >
+                                                                    {type === 'VARIABLE' ? 'Flexível (Duração)' : 'Fixo (Horário)'}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+
+                                                        {formData.lunch_info?.type === 'FIXED' ? (
+                                                            <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                                                                <div>
+                                                                    <label className={LABEL_CLASS}>Início Almoço</label>
+                                                                    <input
+                                                                        type="time"
+                                                                        value={formData.lunch_info?.start || '12:00'}
+                                                                        onChange={(e) => setFormData(prev => ({ ...prev, lunch_info: { ...prev.lunch_info, start: e.target.value } }))}
+                                                                        className={INPUT_CLASS()}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className={LABEL_CLASS}>Fim Almoço</label>
+                                                                    <input
+                                                                        type="time"
+                                                                        value={formData.lunch_info?.end || '13:00'}
+                                                                        onChange={(e) => setFormData(prev => ({ ...prev, lunch_info: { ...prev.lunch_info, end: e.target.value } }))}
+                                                                        className={INPUT_CLASS()}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                                                                <div className="col-span-2">
+                                                                    <label className={LABEL_CLASS}>Duração (Minutos)</label>
+                                                                    <div className="relative">
+                                                                        <input
+                                                                            type="number"
+                                                                            value={formData.lunch_info?.duration_minutes || 60}
+                                                                            onChange={(e) => setFormData(prev => ({ ...prev, lunch_info: { ...prev.lunch_info, duration_minutes: Number(e.target.value) } }))}
+                                                                            step={15}
+                                                                            min={15}
+                                                                            className={INPUT_CLASS()}
+                                                                        />
+                                                                        <span className="absolute right-10 top-2.5 text-xs font-bold text-slate-400">Min</span>
+                                                                    </div>
+                                                                    <p className="text-[10px] text-slate-400 mt-1 ml-1">
+                                                                        O colaborador deve fazer no mínimo este tempo.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Coluna Direita: Resumo e Dias */}
+                                                <div className="space-y-6">
+                                                    <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
+                                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Simulação da Jornada</h4>
+
+                                                        {(() => {
+                                                            const start = formData.work_schedule?.shifts?.[0]?.start || "00:00";
+                                                            const end = formData.work_schedule?.shifts?.[0]?.end || "00:00";
+                                                            const [sh, sm] = start.split(':').map(Number);
+                                                            const [eh, em] = end.split(':').map(Number);
+
+                                                            let totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+
+                                                            // Subtract Lunch
+                                                            let lunchMinutes = 0;
+                                                            if (formData.lunch_info?.type === 'FIXED') {
+                                                                const lStart = formData.lunch_info?.start || "12:00";
+                                                                const lEnd = formData.lunch_info?.end || "13:00";
+                                                                const [lsh, lsm] = lStart.split(':').map(Number);
+                                                                const [leh, lem] = lEnd.split(':').map(Number);
+                                                                lunchMinutes = (leh * 60 + lem) - (lsh * 60 + lsm);
+                                                            } else {
+                                                                lunchMinutes = formData.lunch_info?.duration_minutes || 60;
+                                                            }
+
+                                                            const liquidityMinutes = totalMinutes - lunchMinutes;
+                                                            const hours = Math.floor(liquidityMinutes / 60);
+                                                            const mins = liquidityMinutes % 60;
+
+                                                            // Auto-update weekly_hours in state if logical (Optional, but good for UI sync)
+                                                            // React state updates in render is bad, so we just calculate for display here.
+
+                                                            return (
+                                                                <div className="space-y-3">
+                                                                    <div className="flex justify-between items-center text-sm">
+                                                                        <span className="text-slate-600">Período Total</span>
+                                                                        <span className="font-mono font-medium">{start} - {end}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-sm">
+                                                                        <span className="text-slate-600">Intervalo (Almoço)</span>
+                                                                        <span className="font-mono font-medium text-orange-600">-{lunchMinutes} min</span>
+                                                                    </div>
+                                                                    <div className="h-px bg-slate-200 my-2"></div>
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span className="font-bold text-slate-700">Jornada Líquida</span>
+                                                                        <span className={`font-mono font-bold text-lg ${liquidityMinutes >= 480 && liquidityMinutes <= 600 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                                            {hours}h {mins > 0 ? `${mins}m` : ''}
+                                                                        </span>
+                                                                    </div>
+                                                                    {liquidityMinutes > 600 && (
+                                                                        <p className="text-[10px] text-red-500 font-bold bg-red-50 p-2 rounded flex items-center gap-1">
+                                                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                                            Cuidado: Jornada acima de 10 horas.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <label className={LABEL_CLASS}>Dias de Trabalho</label>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(day => {
+                                                                const isSelected = formData.work_schedule?.days?.includes(day);
+                                                                const dayLabels = { MON: 'Seg', TUE: 'Ter', WED: 'Qua', THU: 'Qui', FRI: 'Sex', SAT: 'Sáb', SUN: 'Dom' };
+                                                                return (
+                                                                    <button
+                                                                        key={day}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const currentDays = formData.work_schedule?.days || [];
+                                                                            const newDays = isSelected
+                                                                                ? currentDays.filter(d => d !== day)
+                                                                                : [...currentDays, day];
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                work_schedule: { ...prev.work_schedule, days: newDays }
+                                                                            }));
+                                                                        }}
+                                                                        className={`
+                                                                            w-10 h-10 rounded-lg text-xs font-bold flex items-center justify-center transition-all bg-white border shadow-sm
+                                                                            ${isSelected
+                                                                                ? 'border-indigo-500 text-indigo-600 ring-1 ring-indigo-500 bg-indigo-50'
+                                                                                : 'border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-400'}
+                                                                        `}
+                                                                    >
+                                                                        {dayLabels[day]}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        {/* Informative Footer */}
+                                        <div className="bg-indigo-900 rounded-xl p-5 text-white shadow-lg overflow-hidden relative">
+                                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                <svg className="w-24 h-24 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" /></svg>
+                                            </div>
+                                            <div className="relative z-10">
+                                                <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    Tolerância de Ponto Ativa
+                                                </h4>
+                                                <p className="text-indigo-200 text-sm max-w-md leading-relaxed">
+                                                    O sistema aplicará automaticamente a tolerância de <strong>10 minutos</strong> (Art. 58 CLT). Atrasos superiores gerarão alertas no dashboard do gestor.
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 

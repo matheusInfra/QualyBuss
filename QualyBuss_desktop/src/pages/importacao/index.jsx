@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collaboratorService } from '../../services/collaboratorService';
 import { documentService } from '../../services/documentService';
-import { useNotification } from '../../context/NotificationContext';
+import { complianceService } from '../../services/complianceService';
+import { useNotification } from '../../contexts/NotificationContext';
 // Import PDF.js worker
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
@@ -14,7 +15,8 @@ const Importacao = () => {
     const [step, setStep] = useState(1); // 1: Config/Upload, 2: Review, 3: Processing
 
     // Config State
-    const [importType, setImportType] = useState('Holerite'); // Holerite, Folha de Ponto, Comprovante Bancário
+    const [importType, setImportType] = useState(''); // Default loaded dynamically
+    const [rules, setRules] = useState([]);
     const [refMonth, setRefMonth] = useState(new Date().getMonth() + 1);
     const [refYear, setRefYear] = useState(new Date().getFullYear());
 
@@ -32,7 +34,21 @@ const Importacao = () => {
     // Load Collaborators on Mount
     useEffect(() => {
         loadCollaborators();
+        loadRules();
     }, []);
+
+    const loadRules = async () => {
+        try {
+            const data = await complianceService.getRules();
+            setRules(data);
+            const monthlyRules = data.filter(r => r.frequency === 'MONTHLY');
+            if (monthlyRules.length > 0) {
+                setImportType(monthlyRules[0].category);
+            }
+        } catch (error) {
+            console.error("Failed to load rules", error);
+        }
+    };
 
     const loadCollaborators = async () => {
         try {
@@ -315,8 +331,7 @@ const Importacao = () => {
 
                     // Usage options for metadata
                     const options = {
-                        month: refMonth,
-                        year: refYear
+                        referencePeriod: `${refYear}-${refMonth.toString().padStart(2, '0')}`
                     };
 
                     await documentService.uploadDocument(
@@ -378,10 +393,13 @@ const Importacao = () => {
                             onChange={(e) => setImportType(e.target.value)}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700"
                         >
-                            <option value="Holerite">Holerite</option>
-                            <option value="Folha de Ponto">Folha de Ponto</option>
-                            <option value="Comprovante Bancário">Comprovante Bancário</option>
-                            <option value="Outros">Outros</option>
+                            {rules.filter(r => r.frequency === 'MONTHLY').length === 0 ? (
+                                <option value="">Nenhuma Categoria Mensal...</option>
+                            ) : (
+                                rules.filter(r => r.frequency === 'MONTHLY').map(rule => (
+                                    <option key={rule.id} value={rule.category}>{rule.category}</option>
+                                ))
+                            )}
                         </select>
                     </div>
                     <div>

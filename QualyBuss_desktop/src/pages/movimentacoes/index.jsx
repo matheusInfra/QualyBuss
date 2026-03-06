@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { movementService } from '../../services/movementService';
 import { collaboratorService } from '../../services/collaboratorService';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const PIPELINE_STEPS = [

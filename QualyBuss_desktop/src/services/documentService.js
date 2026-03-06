@@ -34,7 +34,8 @@ export const documentService = {
                         type: file.type,
                         occurrence_id: occurrenceId,
                         competence_month: options?.month || null,
-                        competence_year: options?.year || null
+                        competence_year: options?.year || null,
+                        expiration_date: options?.expirationDate || null
                     }
                 ])
                 .select()

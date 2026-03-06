@@ -2,13 +2,37 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 import AIChatWidget from '../AIChatWidget';
+import TermsAcceptanceModal from '../../pages/legal/TermsAcceptanceModal';
+import { termsService } from '../../services/termsService';
 import logo from '../../assets/logo.svg'; // Ensure logo is imported for mobile header
+import { useEffect } from 'react';
 
 const Layout = () => {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
+
+    useEffect(() => {
+        checkTerms();
+    }, []);
+
+    const checkTerms = async () => {
+        try {
+            const hasAccepted = await termsService.checkStatus();
+            if (!hasAccepted) {
+                setShowTermsModal(true);
+            }
+        } catch (error) {
+            console.error('Failed to check terms:', error);
+        }
+    };
 
     return (
         <div className="flex h-screen bg-slate-100 font-sans antialiased text-slate-900 overflow-hidden">
+            {/* Modal de Aceite Obrigatório */}
+            <TermsAcceptanceModal
+                open={showTermsModal}
+                onSuccess={() => setShowTermsModal(false)}
+            />
 
             {/* Sidebar (Desktop & Mobile) */}
             <Sidebar
