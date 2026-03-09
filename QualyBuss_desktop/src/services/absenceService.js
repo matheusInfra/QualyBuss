@@ -32,7 +32,7 @@ export const absenceService = {
     async getHistory(collaboratorId) {
         try {
             const { data, error } = await supabase
-                .from('absence_transactions')
+                .from('view_absence_history')
                 .select('*')
                 .eq('collaborator_id', collaboratorId)
                 .order('effective_date', { ascending: false })
@@ -49,14 +49,25 @@ export const absenceService = {
     // Create a new Credit/Debit transaction
     async addTransaction({ collaboratorId, type, quantity, category, reason, date }) {
         try {
+            let targetTable = 'absence_transactions';
+            let cleanCategory = category;
+
+            if (category?.startsWith('[FÉRIAS]')) {
+                targetTable = 'vacation_transactions';
+                cleanCategory = category.replace('[FÉRIAS] ', '');
+            } else if (category?.startsWith('[EXTRAS]')) {
+                targetTable = 'extra_days_transactions';
+                cleanCategory = category.replace('[EXTRAS] ', '');
+            }
+
             const { data, error } = await supabase
-                .from('absence_transactions')
+                .from(targetTable)
                 .insert([
                     {
                         collaborator_id: collaboratorId,
                         type, // 'CREDIT' or 'DEBIT'
                         quantity,
-                        category,
+                        category: cleanCategory,
                         reason,
                         effective_date: date
                     }

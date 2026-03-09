@@ -39,16 +39,25 @@ export const timeCalculationService = {
      */
     async processDay(userId, dateStr) {
         // 1. Fetch Data (Parallel)
-        const [userRes, entriesRes, absenceRes] = await Promise.all([
+        const [userRes, entriesRes, absenceRes, leaveRes, holidayRes] = await Promise.all([
             this.getCollaboratorSchedule(userId),
             supabase.from('time_entries').select('*')
                 .eq('user_id', userId)
                 .gte('clock_in', `${dateStr}T00:00:00`)
                 .lte('clock_in', `${dateStr}T23:59:59`)
                 .order('clock_in', { ascending: true }),
-            supabase.from('absence_transactions').select('*')
+            supabase.from('view_absence_history').select('*')
                 .eq('collaborator_id', userId)
                 .eq('effective_date', dateStr)
+                .limit(1),
+            supabase.from('leave_requests').select('*')
+                .eq('collaborator_id', userId)
+                .eq('status', 'APPROVED')
+                .lte('start_date', dateStr)
+                .gte('end_date', dateStr)
+                .limit(1),
+            supabase.from('holidays').select('*')
+                .eq('date', dateStr)
                 .limit(1)
         ]);
 
@@ -66,10 +75,18 @@ export const timeCalculationService = {
         if (shift) {
             const startMin = timePolicyService.timeToMinutes(shift.start);
             const endMin = timePolicyService.timeToMinutes(shift.end);
-            expectedMinutes = endMin - startMin - 60; // -1h Lunch standard
+            const breakMinutes = shift.break_minutes !== undefined ? shift.break_minutes : 60; // Parâmetro dinâmico da escala
+            expectedMinutes = endMin - startMin - breakMinutes; // Desconto flexível
         }
 
         const absence = absenceRes?.data?.[0];
+        const leave = leaveRes?.data?.[0];
+        const holiday = holidayRes?.data?.[0];
+
+        // Se o colaborador possui férias aprovadas ou é feriado, não há expectativa de trabalho
+        if (leave || holiday) {
+            expectedMinutes = 0;
+        }
 
         // 4. Apply Rules (Tolerance, etc)
         let balance = 0;
@@ -77,11 +94,11 @@ export const timeCalculationService = {
         let overtime100 = 0; // Sundays/Holidays
         let finalStatus = 'OK';
 
-        if (shift) {
+        if (shift && !leave && !holiday) {
             // Is it a full Absence?
             if (entries.length === 0) {
                 if (absence) {
-                    balance = 0; // Justified, no debit
+                    balance = 0; // Justified by manual absence transaction
                     finalStatus = 'JUSTIFIED';
                 } else {
                     balance = -expectedMinutes; // Full debit
@@ -97,7 +114,11 @@ export const timeCalculationService = {
 
                 if (balance > 0) {
                     const day = dateObj.getDay();
-                    if (day === 0) { // Sunday
+                    const isSunday = day === 0;
+                    const worksOnSunday = schedule?.days?.includes("SUN");
+
+                    if (isSunday && !worksOnSunday) {
+                        // Sunday overtime ONLY IF NOT regular work day
                         overtime100 = balance;
                     } else {
                         overtime50 = balance;
@@ -106,18 +127,33 @@ export const timeCalculationService = {
 
                 if (entries.length % 2 !== 0) {
                     finalStatus = 'INCOMPLETE';
+                    // TRAVA DE SEGURANÇA: Cancela o débito/crédito se o ponto está inválido
+                    balance = 0;
+                    overtime50 = 0;
+                    overtime100 = 0;
                 } else if (balance < 0) {
                     finalStatus = 'DEBIT';
                 }
             }
         } else {
-            // Day Off work
+            // Day Off work (Folga, Férias ou Feriado)
             if (workedMinutes > 0) {
-                balance = workedMinutes;
-                overtime100 = workedMinutes; // Work on day off is usually 100%
                 if (entries.length % 2 !== 0) {
                     finalStatus = 'INCOMPLETE';
+                    balance = 0;
+                    overtime100 = 0;
+                } else {
+                    balance = workedMinutes;
+                    overtime100 = workedMinutes; // Work on day off/holiday is usually 100%
                 }
+            } else {
+                // Não trabalhou (e não era esperado)
+                if (leave) {
+                    finalStatus = 'JUSTIFIED'; // Justificou por estar de Licença/Férias
+                } else if (holiday) {
+                    finalStatus = 'OK'; // Feriado
+                }
+                // senão, apenas Folga (mantém OK de fábrica)
             }
         }
 

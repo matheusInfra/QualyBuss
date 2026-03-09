@@ -68,25 +68,28 @@ export const timeManagementService = {
 
                     // --- EXIT LOGIC ---
                     else if (entry.type === 'EXIT') {
-                        let expectedEnd = timeToMinutes(shift.end);
-                        let actualTime = entryDate.getHours() * 60 + entryDate.getMinutes();
-                        const expectedStart = timeToMinutes(shift.start);
+                        // Para lidar com pernoite, criamos objetos Date reais.
+                        const startTimeParts = shift.start.split(':').map(Number);
+                        const expectedStartDate = new Date(entryDate);
+                        expectedStartDate.setHours(startTimeParts[0], startTimeParts[1], 0, 0);
 
-                        // Handle Overnight Exit Calculation
-                        if (expectedStart > expectedEnd) {
-                            if (actualTime > 720) { // PM Exit
-                                expectedEnd += 1440;
-                            } else { // AM Exit
-                                actualTime += 1440;
-                                expectedEnd += 1440;
-                            }
+                        const endTimeParts = shift.end.split(':').map(Number);
+                        let expectedEndDate = new Date(entryDate);
+                        expectedEndDate.setHours(endTimeParts[0], endTimeParts[1], 0, 0);
+
+                        // Se o turno Expected End for numericamente menor que Start
+                        // Significa que virou a noite (Ex: 22:00 -> 06:00)
+                        if (expectedEndDate < expectedStartDate) {
+                            expectedEndDate.setDate(expectedEndDate.getDate() + 1);
                         }
 
-                        // Check Early Departure
-                        if (actualTime < expectedEnd) {
-                            const early = expectedEnd - actualTime;
-                            if (early > 5) {
-                                anomaly = { type: 'WARNING', text: `Saída Antecipada: ${early}min` };
+                        // Agora temos O MOMENTO real esperado da saída. E o MOMENTO real da batida.
+                        // Calculamos Anomalias de Saída Antecipada (Checando milissegundos convertidos pra Minutos)
+                        if (entryDate < expectedEndDate) {
+                            const earlyMinutes = Math.floor((expectedEndDate.getTime() - entryDate.getTime()) / 60000);
+
+                            if (earlyMinutes > 5) {
+                                anomaly = { type: 'WARNING', text: `Saída Antecipada: ${earlyMinutes}min` };
                             }
                         }
                     }

@@ -8,17 +8,33 @@ import { supabase } from './supabase';
 
 
 export const payrollService = {
-    // 1. Configurações (Taxas)
-    async getSettings() {
+    // 1. Configurações (Taxas) - Busca com suporte a Data de Vigência
+    async getSettings(referenceDate = null) {
         try {
-            const { data, error } = await supabase
-                .from('payroll_settings')
-                .select('*')
-                .eq('active', true)
-                .single();
+            let query = supabase.from('payroll_settings').select('*');
+
+            // Prevenção contra injeção de parâmetros do React Query (QueryFunctionContext)
+            let parsedDate = referenceDate;
+            if (parsedDate && typeof parsedDate === 'object' && 'queryKey' in parsedDate) {
+                parsedDate = null;
+            }
+
+            if (parsedDate) {
+                const dateStr = typeof parsedDate === 'string' ? parsedDate : parsedDate.toISOString().split('T')[0];
+                // Busca a regra válida para a data (vigência)
+                query = query
+                    .lte('valid_from', dateStr)
+                    .or(`valid_until.gte.${dateStr},valid_until.is.null`)
+                    .order('valid_from', { ascending: false })
+                    .limit(1);
+            } else {
+                // Fallback para pegar a regra ativa padrão (se não for passada data de competência)
+                query = query.eq('active', true).limit(1);
+            }
+
+            const { data, error } = await query.maybeSingle();
 
             if (error) {
-                // If no settings found (first run), return default null or handle gracefuly
                 if (error.code === 'PGRST116') return null;
                 throw error;
             }
@@ -70,20 +86,43 @@ export const payrollService = {
             // 1. Delete all active benefits for this user
             // 2. Insert selected IPs.
 
-            // A. Delete existing (Active)
-            const { error: delError } = await supabase
+            // A. Fetch existing active benefits
+            const { data: currentBenefits, error: fetchError } = await supabase
                 .from('collaborator_benefits')
-                .delete()
-                .eq('collaborator_id', userId);
+                .select('id, benefit_id')
+                .eq('collaborator_id', userId)
+                .eq('active', true);
 
-            if (delError) throw delError;
+            if (fetchError) throw fetchError;
 
-            // B. Insert New
-            if (benefitIds.length > 0) {
-                const benefitsToInsert = benefitIds.map(bId => ({
+            const currentBenefitIds = currentBenefits.map(b => b.benefit_id);
+
+            // Determine which to deactivate and which to inject
+            const toRemove = currentBenefitIds.filter(id => !benefitIds.includes(id));
+            const toAdd = benefitIds.filter(id => !currentBenefitIds.includes(id));
+
+            // B. Inactivate (Soft Delete) removed benefits preserving history
+            if (toRemove.length > 0) {
+                const { error: updError } = await supabase
+                    .from('collaborator_benefits')
+                    .update({
+                        active: false,
+                        end_date: new Date().toISOString()
+                    })
+                    .eq('collaborator_id', userId)
+                    .in('benefit_id', toRemove)
+                    .eq('active', true);
+
+                if (updError) throw updError;
+            }
+
+            // C. Insert New incoming benefits
+            if (toAdd.length > 0) {
+                const benefitsToInsert = toAdd.map(bId => ({
                     collaborator_id: userId,
                     benefit_id: bId,
-                    active: true
+                    active: true,
+                    start_date: new Date().toISOString()
                 }));
 
                 const { error: insError } = await supabase
@@ -219,43 +258,13 @@ export const payrollService = {
 
     // 5. Inicializar Padrões (Seed via Client)
     async initializeDefaults() {
-        try {
-            // INSS 2024
-            const inss_brackets = [
-                { limit: 1412.00, rate: 0.075, deduction: 0 },
-                { limit: 2666.68, rate: 0.09, deduction: 21.18 },
-                { limit: 4000.03, rate: 0.12, deduction: 101.18 },
-                { limit: 7786.02, rate: 0.14, deduction: 181.18 }
-            ];
-            // IRRF 2024
-            const irrf_brackets = [
-                { limit: 2259.20, rate: 0, deduction: 0 },
-                { limit: 2826.65, rate: 0.075, deduction: 169.44 },
-                { limit: 3751.05, rate: 0.15, deduction: 381.44 },
-                { limit: 4664.68, rate: 0.225, deduction: 662.77 },
-                { limit: 9999999, rate: 0.275, deduction: 896.00 }
-            ];
+        // [MODIFICAÇÃO DE COMPLIANCE]:
+        // As tabelas de INSS e IRRF de 2024 foram removidas do código-fonte (Hardcode)
+        // por exigência contábil, pois taxas variam a cada ano e quebram históricos.
+        // Toda taxação deve ser inserida agora unicamente pelo DBA ou Tela de Configurações,
+        // possuindo 'valid_from' e 'valid_until' explícitos no Supabase.
 
-            const payload = {
-                active: true,
-                inss_brackets,
-                irrf_brackets,
-                company_taxes: { fgts: 0.08, provision_vacation: 0.1111, provision_13th: 0.0833 },
-                dependant_deduction: 189.59
-            };
-
-            const { data, error } = await supabase
-                .from('payroll_settings')
-                .upsert(payload, { onConflict: 'active' }) // Assuming generic conflict resolution or just insert
-                .select()
-                .single();
-
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            console.error('Error initializing defaults:', error);
-            throw error;
-        }
+        throw new Error("A inicialização fixa de taxas via código foi desativada. As faixas de INSS/IRRF devem ser configuradas pela interface administrativa com datas de vigência.");
     },
 
     // 6. Buscar Colaboradores COM Benefícios (Join)
