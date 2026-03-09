@@ -16,7 +16,7 @@ export const timePolicyService = {
     getDefaultSchedule() {
         return {
             days: ["MON", "TUE", "WED", "THU", "FRI"],
-            shifts: [{ start: "08:00", end: "18:00" }] // Simple 08-18 rule
+            shifts: [{ start: "08:00", end: "18:00", break_minutes: 60 }] // Adicionada prop explícita
         };
     },
 
@@ -79,7 +79,8 @@ export const timePolicyService = {
         // Scenario 2: Work Day
         const expectedStartMin = this.timeToMinutes(expected.start);
         const expectedEndMin = this.timeToMinutes(expected.end);
-        const expectedMinutes = expectedEndMin - expectedStartMin - 60; // Subtract standard lunch (simplified)
+        const breakMinutes = expected.break_minutes !== undefined ? expected.break_minutes : 60;
+        const expectedMinutes = expectedEndMin - expectedStartMin - breakMinutes;
 
         if (entries.length === 0) {
             // Check if date is today or future

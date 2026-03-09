@@ -11,6 +11,10 @@ export const TaxEngine = {
      * @returns {Object} { value, effectiveRate }
      */
     calculateINSS(grossSalary, brackets) {
+        if (!brackets || brackets.length === 0) {
+            return { value: 0, effectiveRate: 0 };
+        }
+
         let remainingSalary = grossSalary;
         let totalTax = 0;
         let previousLimit = 0;
@@ -57,6 +61,9 @@ export const TaxEngine = {
      * @param {Array} brackets Tabela IRRF [{limit, rate, deduction}]
      */
     calculateIRRF(baseCalc, brackets) {
+        if (!brackets || brackets.length === 0) {
+            return { value: 0, rate: 0, deduction: 0 };
+        }
         if (baseCalc <= 0) return { value: 0, rate: 0, deduction: 0 };
 
         // Find the bracket that fits
