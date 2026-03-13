@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 // src/contexts/AuthContext.jsx
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../services/supabase';
 
 const AuthContext = createContext({});
@@ -8,6 +8,9 @@ const AuthContext = createContext({});
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // CORREÇÃO: Referência para guardar o canal ativo do Supabase e evitar múltiplos listeners
+  const activeChannelRef = useRef(null);
 
   useEffect(() => {
     // Check active session on load
@@ -33,7 +36,13 @@ export const AuthProvider = ({ children }) => {
       if (session) registerSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      // Limpeza do canal ao desmontar o Provider
+      if (activeChannelRef.current) {
+        supabase.removeChannel(activeChannelRef.current);
+      }
+    };
   }, []);
 
   // --- Auto-Logout Logic (15 min) ---
@@ -102,8 +111,13 @@ export const AuthProvider = ({ children }) => {
 
     if (error) console.error("Failed to register session:", error);
 
-    // 2. Listen for kicks - Filter adjusted for robust delivery (same logic applied on mobile)
-    const channel = supabase.channel(`session_guard_${session.user.id}`)
+    // 2. CORREÇÃO: Antes de criar um novo ouvinte, limpe o antigo!
+    if (activeChannelRef.current) {
+      await supabase.removeChannel(activeChannelRef.current);
+    }
+
+    // 3. Listen for kicks - Filter adjusted for robust delivery (same logic applied on mobile)
+    activeChannelRef.current = supabase.channel(`session_guard_${session.user.id}`)
       .on(
         'postgres_changes',
         {
@@ -124,11 +138,7 @@ export const AuthProvider = ({ children }) => {
         }
       )
       .subscribe();
-
-    return () => supabase.removeChannel(channel);
   };
-
-
 
   return (
     <AuthContext.Provider value={{ user, loading, signOut }}>
