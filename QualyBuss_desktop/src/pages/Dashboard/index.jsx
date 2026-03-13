@@ -19,6 +19,17 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend
 } from 'recharts';
 
+// Mapa estático de cores — Tailwind JIT não detecta classes interpoladas com template literals
+const COLOR_MAP = {
+    blue:    { bg: 'bg-blue-50',    text: 'text-blue-600',    ring: 'ring-blue-100',    border: 'border-blue-100',    blob: 'bg-blue-100/50',    badgeBg: 'bg-blue-50/50' },
+    red:     { bg: 'bg-red-50',     text: 'text-red-600',     ring: 'ring-red-100',     border: 'border-red-100',     blob: 'bg-red-100/50',     badgeBg: 'bg-red-50/50' },
+    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', ring: 'ring-emerald-100', border: 'border-emerald-100', blob: 'bg-emerald-100/50', badgeBg: 'bg-emerald-50/50' },
+    orange:  { bg: 'bg-orange-50',  text: 'text-orange-600',  ring: 'ring-orange-100',  border: 'border-orange-100',  blob: 'bg-orange-100/50',  badgeBg: 'bg-orange-50/50' },
+    yellow:  { bg: 'bg-yellow-50',  text: 'text-yellow-600',  ring: 'ring-yellow-100',  border: 'border-yellow-100',  blob: 'bg-yellow-100/50',  badgeBg: 'bg-yellow-50/50' },
+    purple:  { bg: 'bg-purple-50',  text: 'text-purple-600',  ring: 'ring-purple-100',  border: 'border-purple-100',  blob: 'bg-purple-100/50',  badgeBg: 'bg-purple-50/50' },
+    pink:    { bg: 'bg-pink-50',    text: 'text-pink-600',    ring: 'ring-pink-100',    border: 'border-pink-100',    blob: 'bg-pink-100/50',    badgeBg: 'bg-pink-50/50' },
+};
+
 const Dashboard = () => {
     const [stats, setStats] = useState(null);
     const [recentActivity, setRecentActivity] = useState([]);
@@ -66,6 +77,13 @@ const Dashboard = () => {
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+    // Formatação abreviada para evitar overflow em cards pequenos
+    const formatCurrencyShort = (val) => {
+        if (val >= 1_000_000) return `R$ ${(val / 1_000_000).toFixed(1)}M`;
+        if (val >= 1_000) return `R$ ${(val / 1_000).toFixed(1)}K`;
+        return formatCurrency(val);
+    };
+
     const cards = [
         {
             title: 'Colaboradores Ativos',
@@ -83,7 +101,8 @@ const Dashboard = () => {
         },
         {
             title: 'Folha Estimada',
-            value: formatCurrency(stats?.payroll || 0),
+            value: formatCurrencyShort(stats?.payroll || 0),
+            fullValue: formatCurrency(stats?.payroll || 0),
             icon: CurrencyDollarIcon,
             color: 'emerald',
             trend: 'Mensal'
@@ -135,22 +154,23 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {cards.map((card, idx) => {
                     const Icon = card.icon;
+                    const c = COLOR_MAP[card.color] || COLOR_MAP.blue;
                     return (
                         <div key={idx} className="relative group bg-white rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 border border-slate-100/60 overflow-hidden flex flex-col justify-between h-full">
                             {/* Decorative Gradient Blob */}
-                            <div className={`absolute -right-10 -top-10 w-32 h-32 bg-${card.color}-100/50 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                            <div className={`absolute -right-10 -top-10 w-32 h-32 ${c.blob} rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-5">
-                                    <div className={`p-3.5 rounded-2xl bg-${card.color}-50 text-${card.color}-600 ring-1 ring-${card.color}-100 shadow-sm group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300`}>
+                                    <div className={`p-3.5 rounded-2xl ${c.bg} ${c.text} ring-1 ${c.ring} shadow-sm group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300`}>
                                         <Icon className="w-6 h-6" strokeWidth={1.5} />
                                     </div>
-                                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full bg-${card.color}-50/50 text-${card.color}-600 border border-${card.color}-100 backdrop-blur-sm`}>
+                                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${c.badgeBg} ${c.text} border ${c.border} backdrop-blur-sm`}>
                                         {card.trend}
                                     </span>
                                 </div>
                                 <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-2">{card.title}</h3>
-                                <p className="text-3xl font-black text-slate-800 tracking-tight truncate" title={String(card.value)}>{card.value}</p>
+                                <p className="text-3xl font-black text-slate-800 tracking-tight truncate" title={card.fullValue || String(card.value)}>{card.value}</p>
                             </div>
                         </div>
                     );
@@ -307,7 +327,7 @@ const Dashboard = () => {
                                             <div key={type} className="space-y-1.5 group">
                                                 <div className="flex justify-between text-xs font-semibold items-center">
                                                     <span className="text-slate-600 capitalize tracking-wide">{type.replace('_', ' ').toLowerCase()}</span>
-                                                    <span className="text-slate-700 bg-slate-50 px-2py-0.5 rounded border border-slate-100">{count}</span>
+                                                    <span className="text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">{count}</span>
                                                 </div>
                                                 <div className={`h-2 ${lightColor} rounded-full overflow-hidden`}>
                                                     <div className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }} />

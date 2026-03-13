@@ -41,9 +41,8 @@ const Importacao = () => {
         try {
             const data = await complianceService.getRules();
             setRules(data);
-            const monthlyRules = data.filter(r => r.frequency === 'MONTHLY');
-            if (monthlyRules.length > 0) {
-                setImportType(monthlyRules[0].category);
+            if (data.length > 0) {
+                setImportType(data[0].category);
             }
         } catch (error) {
             console.error("Failed to load rules", error);
@@ -393,11 +392,13 @@ const Importacao = () => {
                             onChange={(e) => setImportType(e.target.value)}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700"
                         >
-                            {rules.filter(r => r.frequency === 'MONTHLY').length === 0 ? (
-                                <option value="">Nenhuma Categoria Mensal...</option>
+                            {rules.length === 0 ? (
+                                <option value="">Nenhuma Categoria Cadastrada...</option>
                             ) : (
-                                rules.filter(r => r.frequency === 'MONTHLY').map(rule => (
-                                    <option key={rule.id} value={rule.category}>{rule.category}</option>
+                                rules.map(rule => (
+                                    <option key={rule.id} value={rule.category}>
+                                        {rule.category} {rule.frequency === 'MONTHLY' ? '(Mensal)' : '(Único)'}
+                                    </option>
                                 ))
                             )}
                         </select>

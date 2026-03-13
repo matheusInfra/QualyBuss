@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { absenceService } from '../../services/absenceService';
 
 const AbsenceDrawer = ({ isOpen, onClose, collaborator, notify }) => {
@@ -31,13 +31,7 @@ const AbsenceDrawer = ({ isOpen, onClose, collaborator, notify }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [history, setHistory] = useState([]);
 
-    useEffect(() => {
-        if (isOpen && collaborator?.collaborator_id) {
-            loadHistory();
-        }
-    }, [isOpen, collaborator]);
-
-    const loadHistory = async () => {
+    const loadHistory = useCallback(async () => {
         if (!collaborator?.collaborator_id) return;
         try {
             const data = await absenceService.getHistory(collaborator.collaborator_id);
@@ -45,7 +39,14 @@ const AbsenceDrawer = ({ isOpen, onClose, collaborator, notify }) => {
         } catch (error) {
             console.error('Failed to load history', error);
         }
-    };
+    }, [collaborator?.collaborator_id]);
+
+    useEffect(() => {
+        if (isOpen && collaborator?.collaborator_id) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            loadHistory();
+        }
+    }, [isOpen, collaborator, loadHistory]);
 
     const handleSubmit = async () => {
         if (!amount || !category || !date) {

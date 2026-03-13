@@ -23,7 +23,7 @@ const RoleForm = () => {
         try {
             const data = await roleService.getRoles({ all: true });
             setRoles(data);
-        } catch (error) {
+        } catch {
             setFeedback({ type: 'error', message: 'Erro ao carregar lista de cargos.' });
         } finally {
             setIsLoading(false);

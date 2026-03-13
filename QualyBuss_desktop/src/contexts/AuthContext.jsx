@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 // src/contexts/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
@@ -35,8 +36,56 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // --- Auto-Logout Logic (15 min) ---
+  useEffect(() => {
+    if (!user) return; // Only track if logged in
+
+    const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+    let activityTimer;
+
+    const logout = () => {
+      console.warn('Auto-logout triggered due to inactivity.');
+      supabase.auth.signOut();
+    };
+
+    const resetTimer = () => {
+      if (activityTimer) clearTimeout(activityTimer);
+      activityTimer = setTimeout(logout, TIMEOUT_MS);
+    };
+
+    // Throttle the event listeners to avoid performance issues
+    let throttleTimer;
+    const handleActivity = () => {
+      if (throttleTimer) return;
+      throttleTimer = setTimeout(() => {
+        resetTimer();
+        throttleTimer = null;
+      }, 1000); // 1-second throttle
+    };
+
+    // Events to track activity
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+
+    // Attach listeners
+    events.forEach(event => window.addEventListener(event, handleActivity));
+
+    // Start timer initially
+    resetTimer();
+
+    // Cleanup
+    return () => {
+      if (activityTimer) clearTimeout(activityTimer);
+      if (throttleTimer) clearTimeout(throttleTimer);
+      events.forEach(event => window.removeEventListener(event, handleActivity));
+    };
+  }, [user]); // Re-bind when user changes (login/logout)
+
+  function signOut() {
+    return supabase.auth.signOut();
+  }
+
   // --- Single Device Enforcement ---
-  const registerSession = async (session) => {
+  async function registerSession(session) {
     if (!session?.user?.id) return;
 
     const sessionToken = session.access_token;
@@ -79,51 +128,7 @@ export const AuthProvider = ({ children }) => {
     return () => supabase.removeChannel(channel);
   };
 
-  // --- Auto-Logout Logic (15 min) ---
-  useEffect(() => {
-    if (!user) return; // Only track if logged in
 
-    const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
-    let activityTimer;
-
-    const logout = () => {
-      console.warn('Auto-logout triggered due to inactivity.');
-      signOut();
-    };
-
-    const resetTimer = () => {
-      if (activityTimer) clearTimeout(activityTimer);
-      activityTimer = setTimeout(logout, TIMEOUT_MS);
-    };
-
-    // Throttle the event listeners to avoid performance issues
-    let throttleTimer;
-    const handleActivity = () => {
-      if (throttleTimer) return;
-      throttleTimer = setTimeout(() => {
-        resetTimer();
-        throttleTimer = null;
-      }, 1000); // 1-second throttle
-    };
-
-    // Events to track activity
-    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-
-    // Attach listeners
-    events.forEach(event => window.addEventListener(event, handleActivity));
-
-    // Start timer initially
-    resetTimer();
-
-    // Cleanup
-    return () => {
-      if (activityTimer) clearTimeout(activityTimer);
-      if (throttleTimer) clearTimeout(throttleTimer);
-      events.forEach(event => window.removeEventListener(event, handleActivity));
-    };
-  }, [user]); // Re-bind when user changes (login/logout)
-
-  const signOut = () => supabase.auth.signOut();
 
   return (
     <AuthContext.Provider value={{ user, loading, signOut }}>

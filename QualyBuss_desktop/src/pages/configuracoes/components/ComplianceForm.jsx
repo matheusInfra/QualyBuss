@@ -26,7 +26,7 @@ const ComplianceForm = () => {
         try {
             const data = await complianceService.getRules();
             setRules(data);
-        } catch (error) {
+        } catch {
             notify.error('Erro', 'Falha ao carregar regras de compliance.');
         } finally {
             setLoading(false);

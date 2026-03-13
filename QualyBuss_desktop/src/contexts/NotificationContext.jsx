@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const NotificationContext = createContext();
@@ -13,6 +14,10 @@ export const useNotification = () => {
 export const NotificationProvider = ({ children }) => {
     const [toasts, setToasts] = useState([]);
 
+    const removeToast = useCallback((id) => {
+        setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, []);
+
     const addToast = useCallback(({ type, title, message, duration = 4000 }) => {
         const id = Date.now();
         setToasts(prev => [...prev, { id, type, title, message }]);
@@ -22,10 +27,7 @@ export const NotificationProvider = ({ children }) => {
                 removeToast(id);
             }, duration);
         }
-    }, []);
-
-    const removeToast = useCallback((id) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const notify = {

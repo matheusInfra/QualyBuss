@@ -25,7 +25,7 @@ const DepartmentForm = () => {
             // Retornar tb inativos pra gestão do admin
             const data = await departmentService.getDepartments({ all: true });
             setDepartments(data);
-        } catch (error) {
+        } catch {
             setFeedback({ type: 'error', message: 'Erro ao carregar lista de departamentos.' });
         } finally {
             setIsLoading(false);

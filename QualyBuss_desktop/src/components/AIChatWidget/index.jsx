@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { sendMessageToAI } from '../../services/aiService';
 import { chatService } from '../../services/chatService';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChatBubbleLeftRightIcon,
@@ -28,7 +29,7 @@ const AIChatWidget = () => {
     const [sessionId, setSessionId] = useState(null);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
+    const [_isTyping, setIsTyping] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const fileInputRef = useRef(null);
 

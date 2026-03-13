@@ -15,6 +15,7 @@ const TaxConfiguration = () => {
 
     useEffect(() => {
         if (settings) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLocalSettings(JSON.parse(JSON.stringify(settings))); // Deep copy
         }
     }, [settings]);

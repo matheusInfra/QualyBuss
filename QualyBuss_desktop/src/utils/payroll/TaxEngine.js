@@ -25,9 +25,6 @@ export const TaxEngine = {
         for (const bracket of sortedBrackets) {
             if (remainingSalary <= 0) break;
 
-            const range = bracket.limit - previousLimit;
-            const taxableAmount = Math.min(remainingSalary, Math.max(0, grossSalary - previousLimit));
-
             // Logic correction for progressive:
             // We calculate tax on the portion within this bracket
             // But usually the logic is: Math.min(salary, limit) - prevLimit

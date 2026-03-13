@@ -18,6 +18,12 @@ const LandingPage = () => {
     }, []);
 
     // Anima Effect Initialization
+    const randomColors = (count) => {
+        return new Array(count)
+            .fill(0)
+            .map(() => "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'));
+    };
+
     useEffect(() => {
         if (!canvasRef.current) return;
 
@@ -88,7 +94,7 @@ const LandingPage = () => {
                     Object.defineProperty(window, 'devicePixelRatio', {
                         get: () => originalDPR
                     });
-                } catch (e) { }
+                } catch { /* ignored */ }
             }, 100);
 
             return () => {
@@ -105,13 +111,8 @@ const LandingPage = () => {
             console.error("Failed to initialize Anima effect:", error);
         }
 
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    const randomColors = (count) => {
-        return new Array(count)
-            .fill(0)
-            .map(() => "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'));
-    };
 
     return (
         <div id="landing-app">

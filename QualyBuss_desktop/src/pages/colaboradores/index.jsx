@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CollaboratorImportModal from '../../components/CollaboratorImportModal';
-import { utils, write } from 'xlsx'; // Need to add to package.json if not present, checking availability
+// import { utils, write } from 'xlsx'; // Need to add to package.json if not present, checking availability
 import CollaboratorCard from '../../components/CollaboratorCard';
 import CollaboratorDrawer from '../../components/CollaboratorDrawer';
 import { collaboratorService } from '../../services/collaboratorService';
@@ -8,6 +8,7 @@ import { useCollaborators, useCollaboratorMutations } from '../../hooks/useColla
 import { useNotification } from '../../contexts/NotificationContext';
 
 // --- Helper for Export ---
+// eslint-disable-next-line no-unused-vars
 const saveFile = (blob, filename) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -28,6 +29,7 @@ const Colaboradores = () => {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false); // NEW MODAL STATE
     const [selectedCollab, setSelectedCollab] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+    // eslint-disable-next-line no-unused-vars
     const [isLoading, setIsLoading] = useState(false); // Global loading for import/export
 
     const ITEMS_PER_PAGE = 30;
@@ -46,6 +48,7 @@ const Colaboradores = () => {
     const totalCount = queryData?.count || 0;
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
+    // eslint-disable-next-line no-unused-vars
     const { createCollaborator, createCollaboratorBatch, updateCollaborator, toggleStatus } = useCollaboratorMutations();
 
     // Refetch when filters change is handled automatically by queryKey dependency in hook
@@ -95,7 +98,7 @@ const Colaboradores = () => {
         if (!dateStr) return '';
         try {
             return new Date(dateStr).toLocaleDateString('pt-BR');
-        } catch (e) { return dateStr; }
+        } catch { return dateStr; }
     };
 
     const handleImportData = async (importedData) => {

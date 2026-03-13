@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { Fragment } from 'react';
 import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'; // Using same icon style as others
 
 export default function RiskDetailDrawer({ isOpen, onClose, risks = [], onResolve }) {

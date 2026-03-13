@@ -16,20 +16,24 @@ export const dashboardService = {
     async fetchCollaboratorMetrics() {
         const { now } = this._getDates();
 
-        // Parallel fetch for Active and Inactive
-        const [activeRes, inactiveRes] = await Promise.all([
+        // Parallel fetch for Active and Inactive + departamentos oficiais
+        const [activeRes, inactiveRes, deptRes] = await Promise.all([
             supabase.from('collaborators')
                 .select('id, full_name, role, department, salary, birth_date, admission_date, avatar_url')
                 .eq('active', true),
             supabase.from('collaborators')
                 .select('id', { count: 'exact', head: true })
-                .eq('active', false)
+                .eq('active', false),
+            supabase.from('departments')
+                .select('name')
+                .order('name')
         ]);
 
         const activeCollabs = activeRes.data || [];
         const inactiveCount = inactiveRes.count || 0;
+        const officialDepts = (deptRes.data || []).map(d => d.name);
 
-        // Calculations
+        // Calculations — só o total agregado transita, não salários individuais
         const payroll = activeCollabs.reduce((sum, c) => sum + (Number(c.salary) || 0), 0);
 
         const currentMonth = now.getMonth();
@@ -40,11 +44,18 @@ export const dashboardService = {
             return (parseInt(parts[1]) - 1) === currentMonth;
         });
 
-        const deptDist = activeCollabs.reduce((acc, c) => {
+        // Distribuição por departamento — usa nomes oficiais como base
+        const deptDist = {};
+        // Inicializar com departamentos oficiais (mesmo que zerados, aparecem no gráfico)
+        officialDepts.forEach(d => { deptDist[d] = 0; });
+        activeCollabs.forEach(c => {
             const dept = c.department || 'Sem Departamento';
-            acc[dept] = (acc[dept] || 0) + 1;
-            return acc;
-        }, {});
+            deptDist[dept] = (deptDist[dept] || 0) + 1;
+        });
+        // Remover departamentos oficiais que ficaram com 0 colaboradores para não poluir o gráfico
+        Object.keys(deptDist).forEach(k => {
+            if (deptDist[k] === 0) delete deptDist[k];
+        });
 
         // Tenure
         let totalTenureDays = 0;
@@ -77,7 +88,7 @@ export const dashboardService = {
     async fetchOccurrenceMetrics() {
         const { startOfMonth, endOfMonth } = this._getDates();
 
-        const { data, error } = await supabase.from('occurrences')
+        const { data, error: _error } = await supabase.from('occurrences')
             .select('id, type, created_at, date_event')
             .gte('date_event', startOfMonth)
             .lte('date_event', endOfMonth);
@@ -122,8 +133,7 @@ export const dashboardService = {
         }).length;
 
         const upcomingVacations = requests.filter(l => {
-            // Future vacations (starts after today)
-            if (l.status === 'PENDING') return false; // Usually only approved counts as 'scheduled'
+            if (l.status === 'PENDING') return false;
             const start = new Date(l.start_date + 'T00:00:00');
             return start > today && l.type === 'FERIAS';
         }).length;
@@ -136,7 +146,6 @@ export const dashboardService = {
     },
 
     async fetchMovementMetrics() {
-        // Pending movements are straightforward count
         const { count } = await supabase.from('job_movements')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'PENDING');
@@ -155,7 +164,7 @@ export const dashboardService = {
 
         const mandatoryRules = rules || [];
 
-        // 2. Fetch Active Collaborators
+        // 2. Fetch Active Collaborators (apenas IDs — leve)
         const { data: activeCollabs } = await supabase
             .from('collaborators')
             .select('id')
@@ -168,7 +177,6 @@ export const dashboardService = {
         }
 
         if (mandatoryRules.length === 0) {
-            // No mandatory rules = Everyone is compliant
             return { complianceRate: 100, missingDocsCount: 0, totalActive };
         }
 
@@ -183,7 +191,7 @@ export const dashboardService = {
 
         const today = new Date();
         const reqYear = today.getFullYear();
-        const reqMonth = today.getMonth() + 1; // 1 to 12
+        const reqMonth = today.getMonth() + 1;
 
         // 4. Group by collaborator
         const collabsDocs = {};
@@ -201,10 +209,8 @@ export const dashboardService = {
 
             const isCompliant = mandatoryRules.every(rule => {
                 if (rule.frequency === 'UNIQUE') {
-                    // Just needs to exist
                     return userDocs.some(d => d.category === rule.category);
                 } else if (rule.frequency === 'MONTHLY') {
-                    // Needs to match the expected period
                     let expectedMonth = reqMonth - 1;
                     let expectedYear = reqYear;
                     if (expectedMonth === 0) {
@@ -245,53 +251,47 @@ export const dashboardService = {
         yesterday.setDate(yesterday.getDate() - 1);
         const isoYesterday = yesterday.toISOString();
 
-        // 1. Critical Actions (DELETE) last 24h
-        const { count: criticalAlerts } = await supabase
-            .from('audit_logs')
-            .select('id', { count: 'exact', head: true })
-            .eq('operation', 'DELETE')
-            .gt('changed_at', isoYesterday);
-
-        // 2. Total Daily Interactions
-        const { count: dailyLogs } = await supabase
-            .from('audit_logs')
-            .select('id', { count: 'exact', head: true })
-            .gt('changed_at', isoYesterday);
+        const [critRes, logsRes] = await Promise.all([
+            supabase
+                .from('audit_logs')
+                .select('id', { count: 'exact', head: true })
+                .eq('operation', 'DELETE')
+                .gt('changed_at', isoYesterday),
+            supabase
+                .from('audit_logs')
+                .select('id', { count: 'exact', head: true })
+                .gt('changed_at', isoYesterday)
+        ]);
 
         return {
-            auditCriticalAlerts: criticalAlerts || 0,
-            auditDailyLogs: dailyLogs || 0
+            auditCriticalAlerts: critRes.count || 0,
+            auditDailyLogs: logsRes.count || 0
         };
     },
 
     async fetchPontoMetrics() {
-        // Obter datas do mês corrente e do dia de hoje para consultas  
         const { startOfMonth, endOfMonth } = this._getDates();
-
-        // Formatar o "hoje" pro banco
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // Consulta 1: Conformidade do Mês atual (para calcular a Média Mensal de Assiduidade)
-        const { data: monthBalances, error: errMonth } = await supabase
-            .from('daily_balances')
-            .select('user_id, status, expected_minutes')
-            .gte('date', startOfMonth.split('T')[0])
-            .lte('date', endOfMonth.split('T')[0])
-            .gt('expected_minutes', 0); // Considerar apenas dias que a pessoa DEVERIA trabalhar
+        const [monthRes, todayRes] = await Promise.all([
+            supabase
+                .from('daily_balances')
+                .select('user_id, status, expected_minutes')
+                .gte('date', startOfMonth.split('T')[0])
+                .lte('date', endOfMonth.split('T')[0])
+                .gt('expected_minutes', 0),
+            supabase
+                .from('daily_balances')
+                .select('user_id, status')
+                .eq('date', todayStr)
+                .gt('expected_minutes', 0)
+        ]);
 
-        // Consulta 2: Posição específica de HOJE
-        const { data: todayBalances, error: errToday } = await supabase
-            .from('daily_balances')
-            .select('user_id, status')
-            .eq('date', todayStr)
-            .gt('expected_minutes', 0); // Só contar quem devia trabalhar hoje
+        let monthComplianceRate = 100;
+        const monthBalances = monthRes.data;
 
-        let monthComplianceRate = 100; // Começa em 100, padrão
-
-        if (!errMonth && monthBalances && monthBalances.length > 0) {
+        if (!monthRes.error && monthBalances && monthBalances.length > 0) {
             const totalWorkDays = monthBalances.length;
-            // Dias de pontualidade ou banco extra (sem atrasos ou faltas não compensadas) => OK ou OVERTIME/CREDIT ou JUSTIFIED
-            // Qualquer status que seja DEBIT, INCOMPLETE ou ABSENCE é inconsistência e derruba o placar
             const compliantDays = monthBalances.filter(b =>
                 b.status !== 'DEBIT' && b.status !== 'INCOMPLETE' && b.status !== 'ABSENCE'
             ).length;
@@ -300,8 +300,9 @@ export const dashboardService = {
 
         let earlyDelaysOrAbsencesToday = 0;
         let onTimeToday = 0;
+        const todayBalances = todayRes.data;
 
-        if (!errToday && todayBalances) {
+        if (!todayRes.error && todayBalances) {
             todayBalances.forEach(b => {
                 if (b.status === 'DEBIT' || b.status === 'INCOMPLETE' || b.status === 'ABSENCE') {
                     earlyDelaysOrAbsencesToday++;
@@ -319,10 +320,10 @@ export const dashboardService = {
         };
     },
 
-    // --- Main Initial Fetcher ---
+    // --- Main Initial Fetcher (RESILIENTE com allSettled) ---
     async getKPIs() {
         try {
-            const [collab, occur, absence, move, comp, audit, ponto] = await Promise.all([
+            const results = await Promise.allSettled([
                 this.fetchCollaboratorMetrics(),
                 this.fetchOccurrenceMetrics(),
                 this.fetchAbsenceMetrics(),
@@ -332,15 +333,17 @@ export const dashboardService = {
                 this.fetchPontoMetrics()
             ]);
 
-            return {
-                ...collab,
-                ...occur,
-                ...absence,
-                ...move,
-                ...comp,
-                ...audit,
-                ...ponto
-            };
+            // Mescla apenas os que tiveram sucesso; os que falharam são ignorados silenciosamente
+            const merged = {};
+            results.forEach(r => {
+                if (r.status === 'fulfilled' && r.value) {
+                    Object.assign(merged, r.value);
+                } else if (r.status === 'rejected') {
+                    console.warn('Dashboard KPI parcial falhou:', r.reason);
+                }
+            });
+
+            return merged;
 
         } catch (error) {
             console.error("Dashboard KPI Error:", error);
@@ -350,11 +353,7 @@ export const dashboardService = {
 
     async getRecentActivity() {
         try {
-            // Fetch recent items from different tables
-            const [
-                recentOccurrences,
-                recentMovements
-            ] = await Promise.all([
+            const [recentOccurrences, recentMovements] = await Promise.all([
                 supabase.from('occurrences')
                     .select('id, title, created_at, type, collaborators(full_name)')
                     .order('created_at', { ascending: false })
@@ -365,7 +364,6 @@ export const dashboardService = {
                     .limit(5)
             ]);
 
-            // Combine and sort
             const combined = [
                 ...(recentOccurrences.data || []).map(i => ({ ...i, category: 'OCCURRENCE' })),
                 ...(recentMovements.data || []).map(i => ({ ...i, category: 'MOVEMENT' }))
@@ -379,16 +377,29 @@ export const dashboardService = {
         }
     },
 
-    // --- Realtime Subscription ---
+    // --- Realtime Subscription (com Debounce para evitar duplicatas) ---
     subscribeToChanges(onUpdate) {
+        let activityDebounceTimer = null;
+
+        // Função central de atualização de atividade com debounce
+        const debouncedActivityRefresh = () => {
+            if (activityDebounceTimer) clearTimeout(activityDebounceTimer);
+            activityDebounceTimer = setTimeout(async () => {
+                try {
+                    const activity = await this.getRecentActivity();
+                    onUpdate({ recentActivity: activity }, true);
+                } catch (err) {
+                    console.error('Debounced activity refresh failed:', err);
+                }
+            }, 500); // 500ms debounce — coalesce múltiplos eventos
+        };
+
         const channel = supabase.channel('dashboard-realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'occurrences' }, async () => {
                 try {
                     const data = await this.fetchOccurrenceMetrics();
                     onUpdate(data);
-                    // Also update recent activity
-                    const activity = await this.getRecentActivity();
-                    onUpdate({ recentActivity: activity }, true); // special flag if needed
+                    debouncedActivityRefresh();
                 } catch (err) {
                     console.error('Error handling occurrence update:', err);
                 }
@@ -413,8 +424,7 @@ export const dashboardService = {
                 try {
                     const data = await this.fetchMovementMetrics();
                     onUpdate(data);
-                    const activity = await this.getRecentActivity();
-                    onUpdate({ recentActivity: activity }, true);
+                    debouncedActivityRefresh();
                 } catch (err) {
                     console.error('Error handling job movement update:', err);
                 }
@@ -422,6 +432,7 @@ export const dashboardService = {
             .subscribe();
 
         return () => {
+            if (activityDebounceTimer) clearTimeout(activityDebounceTimer);
             supabase.removeChannel(channel);
         };
     }

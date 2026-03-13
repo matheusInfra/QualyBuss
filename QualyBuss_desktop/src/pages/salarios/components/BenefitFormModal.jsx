@@ -16,6 +16,7 @@ const BenefitFormModal = ({ isOpen, onClose, benefitToEdit, onSave }) => {
     useEffect(() => {
         if (isOpen) {
             if (benefitToEdit) {
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setFormData({
                     name: benefitToEdit.name,
                     category: benefitToEdit.category,
@@ -26,6 +27,7 @@ const BenefitFormModal = ({ isOpen, onClose, benefitToEdit, onSave }) => {
                 });
             } else {
                 // Reset for new
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setFormData({
                     name: '',
                     category: 'OTHER',

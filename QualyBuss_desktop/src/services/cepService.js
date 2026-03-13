@@ -21,7 +21,7 @@ export const cepService = {
                 };
             }
             throw new Error('BrasilAPI falhou.');
-        } catch (error) {
+        } catch {
             try {
                 // Tentativa 2: ViaCEP
                 const response2 = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);

@@ -29,6 +29,7 @@ const Configuracoes = () => {
     const [activeTab, setActiveTab] = useState('IA');
 
     // Estados Gerais
+    // eslint-disable-next-line no-unused-vars
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [feedback, setFeedback] = useState({ type: '', message: '' });

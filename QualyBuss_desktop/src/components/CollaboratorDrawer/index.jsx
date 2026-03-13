@@ -237,6 +237,7 @@ const CollaboratorDrawer = ({ isOpen, onClose, onSave, collaborator, isSaving })
                 setRolesList(roles.map(r => ({ value: r.name, label: r.name })));
             });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, collaborator]); // collaborator aqui é o objeto parcial vindo da lista
 
     const handleChange = (e) => {
