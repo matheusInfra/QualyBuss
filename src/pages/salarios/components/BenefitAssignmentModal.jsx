@@ -28,6 +28,7 @@ const BenefitAssignmentModal = ({ isOpen, onClose, collaborator }) => {
             userBenefits.forEach(b => {
                 initialSelection[b.benefit_id] = true;
             });
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedBenefits(initialSelection);
         }
     }, [isOpen, collaborator, userBenefits]);

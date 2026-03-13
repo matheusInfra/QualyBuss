@@ -119,7 +119,7 @@ const Movimentacoes = () => {
             await movementService.updateStatus(id, 'APPROVED', user?.id);
             notify.success('Aprovado', 'Movimentação agendada.');
             loadMovements();
-        } catch (error) {
+        } catch {
             notify.error('Erro', 'Falha ao aprovar.');
         }
     };
@@ -129,7 +129,7 @@ const Movimentacoes = () => {
             await movementService.updateStatus(id, 'COMPLETED', user?.id);
             notify.success('Efetivado', 'Alterações aplicadas ao cadastro.');
             loadMovements();
-        } catch (error) {
+        } catch {
             notify.error('Erro', 'Falha ao efetivar.');
         }
     };

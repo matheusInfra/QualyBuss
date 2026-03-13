@@ -109,7 +109,7 @@ const Ocorrencias = () => {
             await occurrenceService.archive(id);
             notify.success('Arquivado', 'Ocorrência arquivada com sucesso.');
             loadData();
-        } catch (error) {
+        } catch {
             notify.error('Erro', 'Falha ao arquivar.');
         }
     };
@@ -120,7 +120,7 @@ const Ocorrencias = () => {
             await occurrenceService.unarchive(id);
             notify.success('Restaurado', 'Ocorrência ativada com sucesso.');
             loadData();
-        } catch (error) {
+        } catch {
             notify.error('Erro', 'Falha ao restaurar.');
         }
     };
@@ -199,7 +199,7 @@ const Ocorrencias = () => {
             setIsModalOpen(false);
             resetForm();
             loadData();
-        } catch (error) {
+        } catch {
             notify.error('Erro', 'Falha ao salvar registro.');
         }
     };

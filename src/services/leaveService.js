@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 export const leaveService = {
-    async getRequests({ month, year, collaboratorId, page = 1, limit = 10 } = {}) {
+    async getRequests({ collaboratorId, page = 1, limit = 10 } = {}) {
         let query = supabase
             .from('leave_requests')
             .select(`

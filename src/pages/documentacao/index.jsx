@@ -278,7 +278,7 @@ const DocumentManager = ({ collaborator, onBack, notify }) => {
             notify.success('Removido', 'Documento excluído.');
             setDocuments(prev => prev.filter(d => d.id !== doc.id));
             setSelectedDocs(prev => prev.filter(id => id !== doc.id));
-        } catch (error) {
+        } catch {
             notify.error('Erro', 'Falha ao excluir documento.');
         }
     };

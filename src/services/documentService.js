@@ -10,7 +10,7 @@ export const documentService = {
             const cleanFileName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
             const filePath = `${collaboratorId}/${Date.now()}_${cleanFileName}.${fileExt}`;
 
-            const { data: storageData, error: storageError } = await supabase.storage
+            const { error: storageError } = await supabase.storage
                 .from('documentos_pessoais')
                 .upload(filePath, file);
 
@@ -93,7 +93,7 @@ export const documentService = {
             // Check if we can get collabID from row?
 
             // Fetch first to get collab_id for cache clearing
-            const { data: doc } = await supabase.from('collaborator_documents').select('collaborator_id').eq('id', id).single();
+            await supabase.from('collaborator_documents').select('collaborator_id').eq('id', id).single();
 
             const { error: dbError } = await supabase
                 .from('collaborator_documents')

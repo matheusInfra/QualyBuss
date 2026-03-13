@@ -150,7 +150,6 @@ export const payrollService = {
 
             if (error) throw error;
             return data;
-            return data;
         } catch (error) {
             console.error('Error fetching catalog:', error);
             return []; // Fail safe
@@ -225,7 +224,8 @@ export const payrollService = {
     },
 
     // 4. Salvar Simulação (Histórico) - Futuro
-    async saveSalaryChange(collaboratorId, newSalary, reason) {
+    // eslint-disable-next-line no-unused-vars
+    async saveSalaryChange(collaboratorId, newSalary, _reason) {
         // Implementation for history log
         try {
             // Fetch current salary first for 'old_salary'? 
@@ -267,7 +267,7 @@ export const payrollService = {
         throw new Error("A inicialização fixa de taxas via código foi desativada. As faixas de INSS/IRRF devem ser configuradas pela interface administrativa com datas de vigência.");
     },
 
-    // 6. Buscar Colaboradores COM Benefícios (Join)
+    // 6. Buscar Colaboradores COM Beneícios (Join) — INCLUI SALARY (modo revelado)
     async getAllCollaboratorsWithBenefits() {
         try {
             // Fetch collaborators
@@ -289,18 +289,11 @@ export const payrollService = {
 
             if (benefitsError) throw benefitsError;
 
-            // Merge in memory (avoiding complex joins for now if RLS is tricky on joins)
-            // Or simpler: Return joined structure if the above Supabase Select supports it well.
-            // Let's do in-memory merge to be robust against "User sees ALL benefits vs User sees HIS benefits" RLS.
-            // Since this is for the DASHBOARD (admin), we likely got all benefits.
-
             const merged = collaborators.map(c => {
                 const userBenefits = benefits.filter(b => b.collaborator_id === c.id).map(b => ({
                     ...b.benefit,
                     ...b,
                     benefit_id: b.benefit_id,
-                    // FIX: Ensure custom_value logic applies (the spread above overwrites value with custom_value if custom_value is the key, but here the keys are DIFFERENT: value (catalog) vs custom_value (link))
-                    // The UI expects 'value'. So we must set 'value' to equal custom_value if it exists.
                     value: (b.custom_value != null) ? Number(b.custom_value) : Number(b.benefit.value),
                     coparticipation: (b.custom_coparticipation != null) ? Number(b.custom_coparticipation) : Number(b.benefit.default_coparticipation)
                 }));
@@ -316,5 +309,63 @@ export const payrollService = {
             console.error('Error fetching collaborators with benefits:', error);
             return [];
         }
+    },
+
+    // 7. Buscar Colaboradores SEM Salary — modo protegido (dados sensíveis não viajam)
+    async getAllCollaboratorsPublic() {
+        try {
+            const { data: collaborators, error: collabError } = await supabase
+                .from('collaborators')
+                .select('id, full_name, role, department, avatar_url, contract_type, admission_date')
+                .order('full_name');
+
+            if (collabError) throw collabError;
+
+            // Benefits (sem salary values individuais — apenas nomes)
+            const { data: benefits, error: benefitsError } = await supabase
+                .from('collaborator_benefits')
+                .select(`
+                    collaborator_id,
+                    benefit:benefits_catalog(id, name, category)
+                `)
+                .eq('active', true);
+
+            if (benefitsError) throw benefitsError;
+
+            const merged = collaborators.map(c => {
+                const userBenefits = benefits.filter(b => b.collaborator_id === c.id).map(b => ({
+                    name: b.benefit?.name,
+                    type: b.benefit?.category,
+                    value: null  // Explicitamente null — não veio do banco
+                }));
+                return {
+                    ...c,
+                    salary: null,  // NÃO TEM no select, garantimos null
+                    benefits: userBenefits
+                };
+            });
+
+            return merged;
+
+        } catch (error) {
+            console.error('Error fetching public collaborator data:', error);
+            return [];
+        }
+    },
+
+    // 8. Re-Autenticação de segurança para áreas restritas
+    // IMPORTANTE: Usa client ISOLADO para não disparar o enforcement de sessão única
+    async reAuthenticate(email, password) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const tempClient = createClient(
+            import.meta.env.VITE_SUPABASE_URL,
+            import.meta.env.VITE_SUPABASE_ANON_KEY,
+            { auth: { persistSession: false, autoRefreshToken: false } }
+        );
+        const { error } = await tempClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        // Descartar o client temp imediatamente
+        await tempClient.auth.signOut();
+        return true;
     }
 };

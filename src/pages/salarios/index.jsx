@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { collaboratorService } from '../../services/collaboratorService';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { payrollService } from '../../services/payrollService';
 import { TaxEngine } from '../../utils/payroll/TaxEngine';
 import {
@@ -9,7 +8,13 @@ import {
     Cog6ToothIcon,
     UserGroupIcon,
     ArrowTrendingUpIcon,
-    SquaresPlusIcon
+    SquaresPlusIcon,
+    EyeIcon,
+    EyeSlashIcon,
+    ShieldExclamationIcon,
+    LockClosedIcon,
+    ExclamationTriangleIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
 import SalarySimulatorDrawer from './components/SalarySimulatorDrawer';
 import BenefitsManager from './components/BenefitsManager';
@@ -20,6 +25,7 @@ import MassManager from './components/MassManager';
 import FormulaAuditModal from './components/FormulaAuditModal';
 
 const SalariosDashboard = () => {
+    const queryClient = useQueryClient();
     const [selectedCollaborator, setSelectedCollaborator] = useState(null);
     const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
 
@@ -28,20 +34,69 @@ const SalariosDashboard = () => {
     const [collaboratorToAssign, setCollaboratorToAssign] = useState(null);
 
     // State for Formula Audit
-    const [isFormulaModalOpen, setIsFormulaModalOpen] = useState(false);
+    const [, setIsFormulaModalOpen] = useState(false);
 
     const [viewMode, setViewMode] = useState('LIST'); // LIST, MASS, BENEFITS, SETTINGS
+    const [showValues, setShowValues] = useState(false);
 
-    // --- DATA FETCHING ---
-    const { data: collaborators = [] } = useQuery({
-        queryKey: ['collaboratorsSalary'],
-        queryFn: () => payrollService.getAllCollaboratorsWithBenefits()
+    // --- RE-AUTH MODAL ---
+    const [authModalOpen, setAuthModalOpen] = useState(false);
+    const [authEmail, setAuthEmail] = useState('');
+    const [authPassword, setAuthPassword] = useState('');
+    const [authError, setAuthError] = useState('');
+    const [authLoading, setAuthLoading] = useState(false);
+
+    // --- DATA FETCHING --- 
+    // Modo Público: sem salary (padrão seguro)
+    const { data: publicCollabs = [] } = useQuery({
+        queryKey: ['collaboratorsPublic'],
+        queryFn: () => payrollService.getAllCollaboratorsPublic()
     });
+
+    // Modo Revelado: com salary (só busca quando showValues é true)
+    const { data: privateCollabs = [] } = useQuery({
+        queryKey: ['collaboratorsSalary'],
+        queryFn: () => payrollService.getAllCollaboratorsWithBenefits(),
+        enabled: showValues  // SÓ roda quando o usuário se reautenticou
+    });
+
+    // Merge: usa dados privados se revelado, senão públicos
+    const collaborators = showValues ? privateCollabs : publicCollabs;
 
     const { data: globalSettings } = useQuery({
         queryKey: ['payrollSettings'],
         queryFn: payrollService.getSettings
     });
+
+    // --- HANDLE REVEAL --- 
+    const handleToggleValues = () => {
+        if (!showValues) {
+            // Quer revelar → abrir modal de re-autenticação
+            setAuthEmail('');
+            setAuthPassword('');
+            setAuthError('');
+            setAuthModalOpen(true);
+        } else {
+            // Quer ocultar → limpar dados sensíveis da memória
+            setShowValues(false);
+            queryClient.removeQueries({ queryKey: ['collaboratorsSalary'] });
+        }
+    };
+
+    const handleReAuth = async () => {
+        setAuthLoading(true);
+        setAuthError('');
+        try {
+            await payrollService.reAuthenticate(authEmail, authPassword);
+            setShowValues(true);
+            setAuthModalOpen(false);
+        } catch {
+            setAuthError('Credenciais inválidas. Acesso negado.');
+        } finally {
+            setAuthLoading(false);
+            setAuthPassword(''); // Limpar senha da memória
+        }
+    };
 
     // --- CALCULATIONS (Overview) ---
     const totalPayroll = collaborators.reduce((sum, c) => sum + (Number(c.salary) || 0), 0);
@@ -54,52 +109,68 @@ const SalariosDashboard = () => {
 
     return (
         <div className="min-h-screen bg-slate-50/50 p-6 space-y-6 animate-fade-in">
-            {/* Header */}
+            {/* Header: Título + Botão Revelar */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Gestão de Salários & Benefícios</h1>
                     <p className="text-sm text-slate-500">Simulação de folha, controle de benefícios e configurações fiscais.</p>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-                    <button
-                        onClick={() => setViewMode('LIST')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'LIST' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
-                    >
-                        <UserGroupIcon className="w-4 h-4 inline mr-2" />
-                        Colaboradores
-                    </button>
-                    <button
-                        onClick={() => setViewMode('MASS')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'MASS' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
-                    >
-                        <SquaresPlusIcon className="w-4 h-4 inline mr-2" />
-                        Gestão em Massa
-                    </button>
-                    <button
-                        onClick={() => setViewMode('BENEFITS')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'BENEFITS' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
-                    >
-                        <BanknotesIcon className="w-4 h-4 inline mr-2" />
-                        Catálogo Benefícios
-                    </button>
-                    <button
-                        onClick={() => setViewMode('SETTINGS')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'SETTINGS' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
-                    >
-                        <Cog6ToothIcon className="w-4 h-4 inline mr-2" />
-                        Config. Fiscal
-                    </button>
+                
+                {/* Botão de Revelar Valores - SEMPRE VISÍVEL */}
+                <button
+                    onClick={handleToggleValues}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ${
+                        showValues 
+                            ? 'bg-amber-500 text-white hover:bg-amber-600 ring-2 ring-amber-300 ring-offset-2' 
+                            : 'bg-white text-slate-600 border-2 border-dashed border-slate-300 hover:border-amber-400 hover:text-amber-600'
+                    }`}
+                >
+                    {showValues ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                    {showValues ? 'Ocultar Valores' : 'Revelar Valores'}
+                    <LockClosedIcon className={`w-4 h-4 ${showValues ? 'text-amber-200' : 'text-slate-400'}`} />
+                </button>
+            </div>
 
-                    <div className="h-6 w-px bg-slate-300 mx-2 hidden md:block"></div>
+            {/* Abas de Navegação */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+                <button
+                    onClick={() => setViewMode('LIST')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'LIST' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
+                >
+                    <UserGroupIcon className="w-4 h-4 inline mr-2" />
+                    Colaboradores
+                </button>
+                <button
+                    onClick={() => setViewMode('MASS')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'MASS' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
+                >
+                    <SquaresPlusIcon className="w-4 h-4 inline mr-2" />
+                    Gestão em Massa
+                </button>
+                <button
+                    onClick={() => setViewMode('BENEFITS')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'BENEFITS' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
+                >
+                    <BanknotesIcon className="w-4 h-4 inline mr-2" />
+                    Catálogo Benefícios
+                </button>
+                <button
+                    onClick={() => setViewMode('SETTINGS')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'SETTINGS' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
+                >
+                    <Cog6ToothIcon className="w-4 h-4 inline mr-2" />
+                    Config. Fiscal
+                </button>
 
-                    <button
-                        onClick={() => setIsFormulaModalOpen(true)}
-                        className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        title="Auditoria de Fórmulas"
-                    >
-                        <CalculatorIcon className="w-5 h-5" />
-                    </button>
-                </div>
+                <div className="h-6 w-px bg-slate-300 mx-1 hidden md:block self-center"></div>
+
+                <button
+                    onClick={() => setIsFormulaModalOpen(true)}
+                    className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                    title="Auditoria de Fórmulas"
+                >
+                    <CalculatorIcon className="w-5 h-5" />
+                </button>
             </div>
 
             {/* KPI Cards (Only show in Overview or Mass mode as high level stats) */}
@@ -108,7 +179,7 @@ const SalariosDashboard = () => {
                     <div>
                         <p className="text-slate-500 text-xs font-bold uppercase mb-1">Folha Mensal Estimada</p>
                         <h2 className="text-2xl font-bold text-slate-900">
-                            {totalPayroll.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            {showValues ? totalPayroll.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}
                         </h2>
                         <span className="text-xs text-slate-400">Salário Base (Bruto)</span>
                     </div>
@@ -120,7 +191,7 @@ const SalariosDashboard = () => {
                     <div>
                         <p className="text-slate-500 text-xs font-bold uppercase mb-1">Média Salarial</p>
                         <h2 className="text-2xl font-bold text-slate-900">
-                            {avgSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            {showValues ? avgSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}
                         </h2>
                         <span className="text-xs text-emerald-600 font-bold">+2.4% vs mês anterior</span>
                     </div>
@@ -132,7 +203,7 @@ const SalariosDashboard = () => {
                     <div>
                         <p className="text-slate-500 text-xs font-bold uppercase mb-1">Custo Total Empresa</p>
                         <h2 className="text-2xl font-bold text-slate-900">
-                            {(totalPayroll * 1.6).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            {showValues ? (totalPayroll * 1.6).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}
                         </h2>
                         <span className="text-xs text-slate-400">Estimado (~60% encargos)</span>
                     </div>
@@ -202,7 +273,7 @@ const SalariosDashboard = () => {
                                             <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-50 text-slate-600 border border-slate-100">
                                                 {b.name}
                                                 <span className="text-slate-400 border-l border-slate-200 pl-1 ml-1">
-                                                    - {Number(b.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    - {showValues ? Number(b.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ •••'}
                                                 </span>
                                             </span>
                                         ))}
@@ -213,7 +284,7 @@ const SalariosDashboard = () => {
                                         <div className="text-right">
                                             <span className="block text-[10px] uppercase font-bold text-slate-400">Bruto</span>
                                             <span className="font-mono text-sm font-medium text-slate-700">
-                                                {gross.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                {showValues ? gross.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}
                                             </span>
                                         </div>
 
@@ -221,7 +292,7 @@ const SalariosDashboard = () => {
                                         <div className="hidden md:block text-right">
                                             <span className="block text-[10px] uppercase font-bold text-slate-300">Descontos Legais</span>
                                             <span className="font-mono text-xs text-slate-400" title={`INSS: ${calculation.inss} | IRRF: ${calculation.irrf}`}>
-                                                - {(calculation.inss + calculation.irrf).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                {showValues ? `- ${(calculation.inss + calculation.irrf).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : '- R$ ••••••••'}
                                             </span>
                                         </div>
 
@@ -229,7 +300,7 @@ const SalariosDashboard = () => {
                                         <div className="text-right">
                                             <span className="block text-[10px] uppercase font-bold text-emerald-600">Líquido Real</span>
                                             <span className="font-mono text-lg font-bold text-emerald-700" title="Bruto - INSS - IRRF - Benefícios">
-                                                {finalNet.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                {showValues ? finalNet.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}
                                             </span>
                                         </div>
                                     </div>
@@ -258,7 +329,7 @@ const SalariosDashboard = () => {
                     </div>
                 )}
 
-                {viewMode === 'MASS' && <MassManager />}
+                {viewMode === 'MASS' && <MassManager showValues={showValues} />}
                 {viewMode === 'BENEFITS' && <BenefitsManager />}
                 {viewMode === 'SETTINGS' && <TaxConfiguration />}
             </div>
@@ -277,6 +348,80 @@ const SalariosDashboard = () => {
                 onClose={() => setAssignmentModalOpen(false)}
                 collaborator={collaboratorToAssign}
             />
+
+            {/* ====== MODAL DE RE-AUTENTICAÇÃO ====== */}
+            {authModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+                        {/* Header com aviso */}
+                        <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-5 flex items-start gap-3">
+                            <div className="bg-white/20 p-2 rounded-lg">
+                                <ShieldExclamationIcon className="w-8 h-8 text-white" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-white font-bold text-lg">Área Restrita</h3>
+                                <p className="text-white/90 text-sm mt-1">
+                                    Você está prestes a acessar <strong>dados salariais confidenciais</strong>. 
+                                    Esta ação é monitorada e requer verificação de identidade.
+                                </p>
+                            </div>
+                            <button onClick={() => setAuthModalOpen(false)} className="text-white/70 hover:text-white">
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Aviso de confidencialidade */}
+                        <div className="mx-5 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                            <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-amber-800">
+                                <strong>Aviso Legal:</strong> As informações salariais são dados sensíveis protegidos pela LGPD. 
+                                O acesso é registrado e qualquer compartilhamento não autorizado pode resultar em sanções disciplinares.
+                            </p>
+                        </div>
+
+                        {/* Formulário */}
+                        <div className="p-5 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                <input 
+                                    type="email" 
+                                    value={authEmail} 
+                                    onChange={(e) => setAuthEmail(e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                    placeholder="seu@email.com"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+                                <input 
+                                    type="password" 
+                                    value={authPassword} 
+                                    onChange={(e) => setAuthPassword(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleReAuth()}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                    placeholder="••••••••"
+                                />
+                            </div>
+
+                            {authError && (
+                                <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 font-medium">
+                                    {authError}
+                                </div>
+                            )}
+
+                            <button 
+                                onClick={handleReAuth}
+                                disabled={authLoading || !authEmail || !authPassword}
+                                className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+                            >
+                                <LockClosedIcon className="w-5 h-5" />
+                                {authLoading ? 'Verificando...' : 'Confirmar Identidade'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

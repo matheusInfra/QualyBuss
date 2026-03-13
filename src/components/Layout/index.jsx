@@ -11,10 +11,6 @@ const Layout = () => {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [showTermsModal, setShowTermsModal] = useState(false);
 
-    useEffect(() => {
-        checkTerms();
-    }, []);
-
     const checkTerms = async () => {
         try {
             const hasAccepted = await termsService.checkStatus();
@@ -25,6 +21,11 @@ const Layout = () => {
             console.error('Failed to check terms:', error);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        checkTerms();
+    }, []);
 
     return (
         <div className="flex h-screen bg-slate-100 font-sans antialiased text-slate-900 overflow-hidden">

@@ -113,7 +113,6 @@ export const timePolicyService = {
         }
 
         // 2. Check Early Exit (if last punch is EXIT)
-        const lastEntry = entries[0]; // Sorted DESC usually
         const sortedEntries = [...entries].sort((a, b) => new Date(a.clock_in) - new Date(b.clock_in));
         const finalExit = sortedEntries[sortedEntries.length - 1];
 

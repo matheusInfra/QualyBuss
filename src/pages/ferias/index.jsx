@@ -4,7 +4,6 @@ import { leaveService } from '../../services/leaveService';
 import { collaboratorService } from '../../services/collaboratorService';
 import { documentService } from '../../services/documentService';
 import { useNotification } from '../../contexts/NotificationContext';
-import { useAuth } from '../../contexts/AuthContext';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -15,7 +14,7 @@ const Ferias = () => {
     const [holidays, setHolidays] = useState([]);
     const [leaves, setLeaves] = useState([]);
     const [collaborators, setCollaborators] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [, setLoading] = useState(true);
 
     const [editingId, setEditingId] = useState(null); // Track if editing
 
@@ -29,6 +28,8 @@ const Ferias = () => {
         reason: ''
     });
     const [validationError, setValidationError] = useState(null);
+    const [vacationBalance, setVacationBalance] = useState(null);
+    const [isFetchingBalance, setIsFetchingBalance] = useState(false);
     const [pendingActionId, setPendingActionId] = useState(null); // New Quick Action Modal State
     // Ghost State: Recently cancelled items stay visible for 10 minutes
     const [transientCancelledIds, setTransientCancelledIds] = useState([]);
@@ -160,6 +161,7 @@ const Ferias = () => {
     const openModal = (dateStr) => {
         setEditingId(null); // Reset edit mode
         setAttachment(null); // Reset attachment
+        setVacationBalance(null); // Reset balance
         setFormData({
             collaboratorId: '',
             startDate: dateStr,
@@ -186,6 +188,30 @@ const Ferias = () => {
         setValidationError(check.blocked ? check.reasons : null);
     };
 
+    // Fetch Balance when Collaborator Changes
+    useEffect(() => {
+        if (!formData.collaboratorId) {
+            setVacationBalance(null);
+            return;
+        }
+        
+        const fetchBalance = async () => {
+            setIsFetchingBalance(true);
+            try {
+                const balance = await leaveService.getVacationBalance(formData.collaboratorId);
+                setVacationBalance(balance);
+            } catch (err) {
+                console.error("Erro ao buscar saldo:", err);
+                // Fallback amigável
+                setVacationBalance({ total: 30, available: 0, taken: 0 });
+            } finally {
+                setIsFetchingBalance(false);
+            }
+        };
+
+        fetchBalance();
+    }, [formData.collaboratorId]);
+
     const handleFormChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -194,6 +220,19 @@ const Ferias = () => {
             validateDate(value, formData.type);
         }
     };
+
+    // Cálculos em tempo real para o Badge
+    const startDateObj = formData.startDate ? new Date(formData.startDate) : null;
+    const endDateObj = formData.endDate ? new Date(formData.endDate) : null;
+    const currentDiffDays = (startDateObj && endDateObj && endDateObj >= startDateObj) 
+        ? Math.ceil((endDateObj - startDateObj) / (1000 * 60 * 60 * 24)) + 1 
+        : 0;
+    
+    // Validações de limites para desabilitar o botão
+    const isExceedingBalance = formData.type === 'FERIAS' && vacationBalance && currentDiffDays > vacationBalance.available;
+    const isExceedingLimit = formData.type === 'FERIAS' && currentDiffDays > 30;
+    const isInvalidInterval = formData.startDate && formData.endDate && endDateObj < startDateObj;
+    const isSubmitBlocked = !!validationError || isExceedingBalance || isExceedingLimit || isInvalidInterval || currentDiffDays < 1;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -676,11 +715,66 @@ const Ferias = () => {
                                                 <option key={c.id} value={c.id}>{c.full_name}</option>
                                             ))}
                                         </select>
+
+                                        {/* Card de Saldo */}
+                                        {formData.collaboratorId && (
+                                            <div className="mt-3 bg-slate-50 rounded-xl border border-slate-200 p-4 transition-all duration-300 shadow-sm animate-fade-in">
+                                                {isFetchingBalance ? (
+                                                    <div className="flex items-center gap-2 text-slate-400 text-sm">
+                                                        <svg className="animate-spin h-5 w-5 text-blue-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                        Calculando saldo do período aquisitivo...
+                                                    </div>
+                                                ) : vacationBalance ? (
+                                                    <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                                                        <div>
+                                                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                                                Saldo de Férias Disponível
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`text-2xl font-black ${vacationBalance.available > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                                                    {vacationBalance.available}
+                                                                </span>
+                                                                <span className="text-sm font-medium text-slate-500">dias</span>
+                                                            </div>
+                                                            <div className="text-xs text-slate-400 mt-0.5">
+                                                                Admissão: <strong>{collaborators.find(c => c.id === formData.collaboratorId)?.admission_date ? new Date(collaborators.find(c => c.id === formData.collaboratorId).admission_date).toLocaleDateString() : 'N/A'}</strong>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className="grid grid-cols-2 gap-3 w-full sm:w-auto">
+                                                            <div className="bg-white px-3 py-2 rounded-lg border border-slate-100 flex flex-col min-w-[100px]">
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Aquisitivo Total</span>
+                                                                <span className="text-sm font-bold text-slate-700">{vacationBalance.total} dias</span>
+                                                            </div>
+                                                            <div className="bg-white px-3 py-2 rounded-lg border border-slate-100 flex flex-col min-w-[100px]">
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Já Gozados</span>
+                                                                <span className="text-sm font-bold text-slate-700">{vacationBalance.taken} dias</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* 3. Dates & Validation Info */}
-                                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                                        <div className="grid grid-cols-2 gap-6">
+                                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4 relative">
+                                        
+                                        {/* Badge Calculador de Meio */}
+                                        {currentDiffDays > 0 && (
+                                            <div className={`absolute -top-3 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold shadow-sm border
+                                                ${isExceedingLimit || isExceedingBalance 
+                                                    ? 'bg-red-100 text-red-700 border-red-200' 
+                                                    : (formData.type === 'FERIAS' && currentDiffDays < 5)
+                                                        ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                                                        : 'bg-blue-100 text-blue-700 border-blue-200'
+                                                }
+                                            `}>
+                                                {currentDiffDays} {currentDiffDays === 1 ? 'dia' : 'dias'}
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-2 gap-6 pt-2">
                                             <div>
                                                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Data de Início</label>
                                                 <input
@@ -703,31 +797,64 @@ const Ferias = () => {
                                                     value={formData.endDate}
                                                     onChange={handleFormChange}
                                                     min={formData.startDate}
-                                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500 font-medium"
+                                                    className={`w-full px-4 py-3 border-2 rounded-xl outline-none transition-colors font-medium
+                                                    ${isExceedingLimit || isExceedingBalance || isInvalidInterval
+                                                            ? 'border-red-300 bg-red-50 text-red-700 focus:border-red-500'
+                                                            : 'border-slate-200 focus:border-blue-500'}`}
                                                     required
                                                 />
                                             </div>
                                         </div>
 
-                                        {/* Verification Feedback */}
-                                        {validationError && (
-                                            <div className="flex items-start gap-3 p-3 bg-red-100/50 rounded-lg border border-red-100">
-                                                <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                                <div>
-                                                    <p className="text-xs font-bold text-red-700 uppercase">Bloqueio CLT Detectado</p>
-                                                    <p className="text-xs text-red-600 mt-0.5">
-                                                        Para férias, o início não pode ser em sextas, sábados ou vésperas de feriado.
-                                                    </p>
+                                        {/* Verification Feedbacks */}
+                                        <div className="space-y-2">
+                                            {validationError && (
+                                                <div className="flex items-start gap-3 p-3 bg-red-100/50 rounded-lg border border-red-100 animate-zoom-in">
+                                                    <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-red-700 uppercase">Início Inválido (CLT)</p>
+                                                        <p className="text-xs text-red-600 mt-0.5">O início das férias não pode ser em sextas, sábados ou vésperas de feriado.</p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {!validationError && formData.startDate && formData.type === 'FERIAS' && (
-                                            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg border border-emerald-100">
-                                                <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                                <span className="text-xs font-bold text-emerald-700">Data válida para início de Férias.</span>
-                                            </div>
-                                        )}
+                                            {isExceedingBalance && (
+                                                <div className="flex items-start gap-3 p-3 bg-red-100/50 rounded-lg border border-red-100 animate-zoom-in">
+                                                    <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-red-700 uppercase">Saldo Insuficiente</p>
+                                                        <p className="text-xs text-red-600 mt-0.5">O colaborador possui apenas {vacationBalance.available} dias disponíveis. Você selecionou {currentDiffDays}.</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {isExceedingLimit && !isExceedingBalance && (
+                                                <div className="flex items-start gap-3 p-3 bg-red-100/50 rounded-lg border border-red-100 animate-zoom-in">
+                                                    <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-red-700 uppercase">Limite Excedido (CLT)</p>
+                                                        <p className="text-xs text-red-600 mt-0.5">Um período de férias não pode ultrapassar 30 dias contínuos.</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {formData.type === 'FERIAS' && currentDiffDays > 0 && currentDiffDays < 5 && (
+                                                <div className="flex items-start gap-3 p-3 bg-amber-100/50 rounded-lg border border-amber-200 animate-zoom-in">
+                                                    <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-amber-700 uppercase">Atenção (CLT Art. 134 §1º)</p>
+                                                        <p className="text-xs text-amber-600 mt-0.5">Em caso de fracionamento, uma das frações não pode ser menor que 14 dias e as demais menores que 5 dias.</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {!validationError && !isExceedingLimit && !isExceedingBalance && isInvalidInterval === false && currentDiffDays >= 5 && formData.type === 'FERIAS' && (
+                                                <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg border border-emerald-100 animate-zoom-in">
+                                                    <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                    <span className="text-xs font-bold text-emerald-700">Período totalmente válido</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* 4. Reason */}
@@ -780,7 +907,7 @@ const Ferias = () => {
                                         </button>
                                         <button
                                             type="submit"
-                                            disabled={!!validationError}
+                                            disabled={isSubmitBlocked}
                                             className="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95"
                                         >
                                             {editingId ? 'Salvar Alterações' : 'Confirmar Solicitação'}

@@ -24,6 +24,7 @@ const Ocorrencias = lazy(() => import('../pages/ocorrencias'));
 const Compliance = lazy(() => import('../pages/compliance'));
 const GestaoPonto = lazy(() => import('../pages/ponto'));
 const SalariosDashboard = lazy(() => import('../pages/salarios'));
+const Organograma = lazy(() => import('../pages/organograma'));
 
 const PrivateRoute = ({ children }) => {
   const { user } = useAuth();
@@ -64,6 +65,7 @@ export function AppRoutes() {
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/ponto" element={<GestaoPonto />} />
             <Route path="/salarios" element={<SalariosDashboard />} />
+            <Route path="/organograma" element={<Organograma />} />
           </Route>
 
           {/* Fallback */}

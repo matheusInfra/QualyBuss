@@ -32,8 +32,10 @@ export default function SalarySimulatorDrawer({ isOpen, onClose, collaborator, s
     useEffect(() => {
         if (collaborator && isOpen) {
             payrollService.getCollaboratorBenefits(collaborator.id).then(setBenefits);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setDependants(collaborator.dependents || 0);
             // Reset params
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSimParams({
                 adjustmentType: 'PERCENTAGE',
                 adjustmentValue: 0,
@@ -91,6 +93,7 @@ export default function SalarySimulatorDrawer({ isOpen, onClose, collaborator, s
 
         const simulated = calculateScenario(newBaseSalary, simParams.extraIncome, simParams.extraDiscount);
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setComparison({
             current,
             simulated,
@@ -114,6 +117,7 @@ export default function SalarySimulatorDrawer({ isOpen, onClose, collaborator, s
         ];
     }, [comparison]);
 
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const companyCostData = useMemo(() => {
         if (!comparison) return [];
         return [

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { payrollService } from '../../../services/payrollService';
 import { collaboratorService } from '../../../services/collaboratorService';
 import { TaxEngine } from '../../../utils/payroll/TaxEngine';
@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
-export default function MassManager() {
+export default function MassManager({ showValues = false }) {
     const queryClient = useQueryClient();
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [mode, setMode] = useState('SALARY'); // 'SALARY' | 'BENEFITS'
@@ -32,12 +32,23 @@ export default function MassManager() {
     const [selectedBenefitToAssign, setSelectedBenefitToAssign] = useState(null);
     const [processing, setProcessing] = useState(false);
 
-    // Fetch Data
+    // Fetch Data - condicional baseado em showValues
     const { data: collaborators = [] } = useQuery({
-        queryKey: ['collaborators_mass'],
+        queryKey: ['collaborators_mass', showValues],
         queryFn: async () => {
-            const data = await collaboratorService.getAllRaw();
-            return data || [];
+            if (showValues) {
+                // Modo revelado: traz tudo, incluindo salary
+                const data = await collaboratorService.getAllRaw();
+                return data || [];
+            } else {
+                // Modo protegido: exclui salary da query
+                const { data, error } = await (await import('../../../services/supabase')).supabase
+                    .from('collaborators')
+                    .select('id, full_name, role, department, avatar_url, contract_type, admission_date')
+                    .order('full_name');
+                if (error) return [];
+                return (data || []).map(c => ({ ...c, salary: null }));
+            }
         }
     });
 
@@ -133,6 +144,7 @@ export default function MassManager() {
         }, {});
 
         return Object.values(deptStats);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCollaborators, adjustmentPercent, payrollSettings]);
 
     // Handlers
@@ -331,7 +343,7 @@ export default function MassManager() {
                             </h3>
                             {mode === 'SALARY' && (
                                 <p className="text-xs text-slate-400">
-                                    Impacto: <span className="text-emerald-400 font-mono">+ {stats.diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                    Impacto: <span className="text-emerald-400 font-mono">+ {showValues ? stats.diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}</span>
                                 </p>
                             )}
                         </div>
@@ -426,7 +438,7 @@ export default function MassManager() {
                                             <Tooltip
                                                 cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
                                                 formatter={(value, name) => [
-                                                    value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+                                                    showValues ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••',
                                                     name === 'net' ? 'Salário Líquido' :
                                                         name === 'taxes' ? 'Impostos/Desc' :
                                                             name === 'companyCost' ? 'Encargos Empresa' : name
@@ -467,15 +479,15 @@ export default function MassManager() {
                                 <div className="space-y-3">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-slate-500">Salário Bruto (Total)</span>
-                                        <span className="font-mono text-slate-700">{stats.projectedSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <span className="font-mono text-slate-700">{showValues ? stats.projectedSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-rose-500">Descontos (INSS/IRRF)</span>
-                                        <span className="font-mono text-rose-500">- {stats.totalEmployeeTaxes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <span className="font-mono text-rose-500">- {showValues ? stats.totalEmployeeTaxes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}</span>
                                     </div>
                                     <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
                                         <span className="font-bold text-emerald-700">Líquido Estimado</span>
-                                        <span className="font-mono font-bold text-xl text-emerald-600">{stats.totalNet.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <span className="font-mono font-bold text-xl text-emerald-600">{showValues ? stats.totalNet.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}</span>
                                     </div>
                                     <p className="text-[10px] text-slate-400 mt-2">*Considerando INSS e IRRF padrão 2024.</p>
                                 </div>
@@ -491,18 +503,18 @@ export default function MassManager() {
                                 <div className="space-y-3">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-slate-500">Folha Bruta</span>
-                                        <span className="font-mono text-slate-700">{stats.projectedSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <span className="font-mono text-slate-700">{showValues ? stats.projectedSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-indigo-500">Encargos (FGTS/Provisões)</span>
-                                        <span className="font-mono text-indigo-500">+ {stats.totalCompanyBurdens.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <span className="font-mono text-indigo-500">+ {showValues ? stats.totalCompanyBurdens.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}</span>
                                     </div>
                                     <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
                                         <span className="font-bold text-slate-800">Custo Total</span>
-                                        <span className="font-mono font-bold text-xl text-indigo-600">{stats.totalCompanyCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <span className="font-mono font-bold text-xl text-indigo-600">{showValues ? stats.totalCompanyCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}</span>
                                     </div>
                                     <div className="text-xs text-center mt-2 p-2 bg-slate-50 rounded text-slate-500">
-                                        Aumento Real de Custo: <span className="font-bold text-rose-500">+ {(stats.totalCompanyCost - stats.currentTotalCompanyCost).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        Aumento Real de Custo: <span className="font-bold text-rose-500">+ {showValues ? (stats.totalCompanyCost - stats.currentTotalCompanyCost).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -592,16 +604,16 @@ export default function MassManager() {
                                                             </td>
                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{collab.role}</td>
                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-slate-700">
-                                                                {currentSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                                {adjustmentPercent > 0 && <span className="text-xs text-emerald-500 ml-1">+{adjustmentPercent}%</span>}
+                                                                {showValues ? currentSalary.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}
+                                                                {showValues && adjustmentPercent > 0 && <span className="text-xs text-emerald-500 ml-1">+{adjustmentPercent}%</span>}
                                                             </td>
                                                             {mode === 'SALARY' && selectedIds.size > 0 && (
                                                                 <>
                                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold font-mono text-emerald-600 bg-emerald-50/50">
-                                                                        {netCalc.net.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                                        {showValues ? netCalc.net.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}
                                                                     </td>
                                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold font-mono text-indigo-600 bg-indigo-50/50">
-                                                                        {compCost.totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                                        {showValues ? compCost.totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ ••••••••'}
                                                                     </td>
                                                                 </>
                                                             )}

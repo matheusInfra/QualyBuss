@@ -25,12 +25,12 @@ export const kpiService = {
      * Uses Postgres Function: get_geo_events_feed(limit_count, p_user_id)
      * Fallback: Client-side aggregation if RPC fails.
      */
-    async getGeoEvents(limit = 50, userId = null) {
+    async getGeoEvents(limit = 50, _userId = null) {
         // Prepare params. Always send p_user_id (even if null) to match RPC signature exactly
-        const params = {
-            limit_count: limit,
-            p_user_id: userId || null
-        };
+        // const params = {
+        //     limit_count: limit,
+        //     p_user_id: userId || null
+        // };
 
         // try {
         //     const { data, error } = await supabase.rpc('get_geo_events_feed', params);
